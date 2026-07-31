@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  allowedDevOrigins: ['strongly-pirates-certificate-massage.trycloudflare.com'],
 };
 
 export default nextConfig;

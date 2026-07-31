@@ -1,35 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mollie, TIPDIRECT_FEE } from '@/lib/mollie'
-import { supabaseAdmin } from '@/lib/supabase'
+import { mollie } from '@/lib/mollie'
+import { adminDb } from '@/lib/firebase-admin'
 
 export async function POST(req: NextRequest) {
   try {
-    const { oberId, bedragCenten } = await req.json()
+    const { oberId, bedragCenten, sterren, complimenten, boodschap } = await req.json()
 
     if (!oberId || !bedragCenten || bedragCenten < 100) {
       return NextResponse.json({ fout: 'Ongeldig verzoek' }, { status: 400 })
     }
 
-    // Controleer of de ober bestaat
-    const { data: ober, error: oberFout } = await supabaseAdmin
-      .from('obers')
-      .select('id, naam, gebruikersnaam, actief')
-      .eq('id', oberId)
-      .eq('actief', true)
-      .single()
-
-    if (oberFout || !ober) {
+    const oberSnap = await adminDb.collection('obers').doc(oberId).get()
+    if (!oberSnap.exists || !oberSnap.data()?.actief) {
       return NextResponse.json({ fout: 'Ober niet gevonden' }, { status: 404 })
     }
 
-    const totaalCenten = bedragCenten + TIPDIRECT_FEE
+    const ober = { id: oberSnap.id, ...oberSnap.data() } as {
+      id: string
+      naam: string
+      gebruikersnaam: string
+      actief: boolean
+    }
+
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
 
-    // Mollie betaling aanmaken
     const betaling = await mollie.payments.create({
       amount: {
         currency: 'EUR',
-        value: (totaalCenten / 100).toFixed(2),
+        value: (bedragCenten / 100).toFixed(2),
       },
       description: `Fooi voor ${ober.naam} via TipDirect`,
       redirectUrl: `${baseUrl}/betaald?ober=${ober.gebruikersnaam}`,
@@ -38,26 +36,23 @@ export async function POST(req: NextRequest) {
       metadata: {
         oberId: ober.id,
         bedragCenten: bedragCenten.toString(),
-        feeCenten: TIPDIRECT_FEE.toString(),
       },
     })
 
-    // Betaling opslaan in database
-    const { error: dbFout } = await supabaseAdmin
-      .from('betalingen')
-      .insert({
-        ober_id: ober.id,
-        mollie_id: betaling.id,
-        bedrag: totaalCenten,
-        fee: TIPDIRECT_FEE,
-        status: 'open',
-        beschrijving: `Fooi voor ${ober.naam}`,
-      })
-
-    if (dbFout) {
-      console.error('Database fout:', dbFout)
-      return NextResponse.json({ fout: 'Database fout' }, { status: 500 })
-    }
+    await adminDb.collection('betalingen').add({
+      ober_id: ober.id,
+      mollie_id: betaling.id,
+      bedrag: bedragCenten,
+      status: 'open',
+      bestemming: null,           // wordt ingevuld door webhook: 'tipdirect' of 'klant'
+      abonnement_bijdrage: null,  // bedrag dat naar abonnement ging
+      beschrijving: `Fooi voor ${ober.naam}`,
+      aangemaakt_op: new Date().toISOString(),
+      betaald_op: null,
+      sterren: sterren ?? null,
+      complimenten: complimenten ?? null,
+      boodschap: boodschap ?? null,
+    })
 
     return NextResponse.json({ betaalUrl: betaling.getCheckoutUrl() })
   } catch (err) {

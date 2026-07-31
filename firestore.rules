@@ -1,0 +1,75 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── obers ───────────────────────────────────────────────────────────────
+    // Publiek leesbaar: de betaalpagina (/[gebruikersnaam]) wordt bekeken
+    // door klanten die niet zijn ingelogd.
+    match /obers/{oberId} {
+      allow read: if true;
+
+      allow create: if request.auth != null && (
+        // eigen account aanmaken bij registratie (individueel of bedrijf)
+        request.auth.uid == oberId
+        ||
+        // uitbater maakt een medewerker aan onder het eigen bedrijf
+        (
+          request.resource.data.account_type == 'medewerker' &&
+          get(/databases/$(database)/documents/obers/$(request.auth.uid)).data.account_type == 'bedrijf' &&
+          request.resource.data.bedrijf_id == get(/databases/$(database)/documents/obers/$(request.auth.uid)).data.bedrijf_id
+        )
+      );
+
+      allow update, delete: if request.auth != null && (
+        // eigen profiel bewerken
+        request.auth.uid == oberId
+        ||
+        // uitbater bewerkt/verwijdert een medewerker van het eigen bedrijf
+        (
+          resource.data.account_type == 'medewerker' &&
+          get(/databases/$(database)/documents/obers/$(request.auth.uid)).data.account_type == 'bedrijf' &&
+          resource.data.bedrijf_id == get(/databases/$(database)/documents/obers/$(request.auth.uid)).data.bedrijf_id
+        )
+      );
+    }
+
+    // ── bedrijven ───────────────────────────────────────────────────────────
+    // Publiek leesbaar: logo en naam staan op de betaalpagina van medewerkers.
+    match /bedrijven/{bedrijfId} {
+      allow read: if true;
+
+      allow create: if request.auth != null &&
+        request.resource.data.email == request.auth.token.email;
+
+      allow update: if request.auth != null &&
+        get(/databases/$(database)/documents/obers/$(request.auth.uid)).data.bedrijf_id == bedrijfId;
+
+      allow delete: if false;
+    }
+
+    // ── betalingen ──────────────────────────────────────────────────────────
+    // Alle schrijfacties lopen via de server (Admin SDK in /api/betaling en
+    // /api/webhook), die Security Rules altijd negeert. Vanaf de client is
+    // dus alleen lezen nodig — schrijven vanaf de client blijft uit.
+    match /betalingen/{betalingId} {
+      allow read: if request.auth != null && (
+        // individuele ober of medewerker bekijkt eigen tips
+        resource.data.ober_id == request.auth.uid
+        ||
+        // uitbater bekijkt tips van het eigen team
+        (
+          get(/databases/$(database)/documents/obers/$(request.auth.uid)).data.account_type == 'bedrijf' &&
+          get(/databases/$(database)/documents/obers/$(resource.data.ober_id)).data.bedrijf_id == get(/databases/$(database)/documents/obers/$(request.auth.uid)).data.bedrijf_id
+        )
+      );
+
+      allow write: if false;
+    }
+
+    // Alles wat niet hierboven genoemd is: dicht.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

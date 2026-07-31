@@ -1,0 +1,585 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { auth } from '@/lib/firebase'
+import { onAuthStateChanged, getIdToken } from 'firebase/auth'
+import { euro } from '@/lib/utils'
+import Link from 'next/link'
+import Image from 'next/image'
+
+type Abonnement = {
+  id: string
+  naam: string
+  email: string
+  iban: string | null
+  status: 'pending' | 'actief' | 'vervallen'
+  bedrag: number
+  voldaan: number
+  start_datum: string
+  actief_sinds: string | null
+}
+
+type Config = {
+  abonnementsBedrag: number
+  millerCreativePercent: number
+  belgianPartnerPercent: number
+  marketingPercent: number
+  belgianPartnerNaam: string
+}
+
+type UitbetalingGroep = {
+  oberId: string
+  naam: string
+  email: string
+  iban: string | null
+  iban_naam: string | null
+  betalingen: { id: string; bedrag: number; netto_klant: number; betaald_op: string }[]
+  totaal: number
+}
+
+const STATUS_KLEUR: Record<string, string> = {
+  actief: 'bg-emerald-100 text-emerald-800',
+  pending: 'bg-amber-100 text-amber-800',
+  vervallen: 'bg-red-100 text-red-700',
+}
+
+type PartnerItem = {
+  id: string
+  naam: string
+  email: string
+  land: string
+  iban: string | null
+  actief: boolean
+}
+
+type Tab = 'abonnementen' | 'uitbetalingen' | 'partners' | 'instellingen'
+
+export default function AdminDashboard() {
+  const [tab, setTab] = useState<Tab>('abonnementen')
+  const [abonnementen, setAbonnementen] = useState<Abonnement[]>([])
+  const [uitbetalingen, setUitbetalingen] = useState<UitbetalingGroep[]>([])
+  const [config, setConfig] = useState<Config | null>(null)
+  const [laden, setLaden] = useState(true)
+  const [uitbLaden, setUitbLaden] = useState(false)
+  const [toegangFout, setToegansFout] = useState(false)
+  const [token, setToken] = useState('')
+  const [configOpslaan, setConfigOpslaan] = useState(false)
+  const [configOpgeslagen, setConfigOpgeslagen] = useState(false)
+  const [nieuwBedrag, setNieuwBedrag] = useState('')
+  const [filter, setFilter] = useState<'alle' | 'actief' | 'pending' | 'vervallen'>('alle')
+  const [bezig, setBezig] = useState<string | null>(null)
+  const [melding, setMelding] = useState('')
+  const [cronBezig, setCronBezig] = useState(false)
+  const [cronResultaat, setCronResultaat] = useState('')
+  const [partners, setPartners] = useState<PartnerItem[]>([])
+  const [partnerLaden, setPartnerLaden] = useState(false)
+  const [nieuwPartnerNaam, setNieuwPartnerNaam] = useState('')
+  const [nieuwPartnerEmail, setNieuwPartnerEmail] = useState('')
+  const [nieuwPartnerIban, setNieuwPartnerIban] = useState('')
+  const [partnerAanmakenBezig, setPartnerAanmakenBezig] = useState(false)
+  const [partnerMelding, setPartnerMelding] = useState('')
+  const [uitbPartnerBezig, setUitbPartnerBezig] = useState(false)
+  const [uitbPartnerMelding, setUitbPartnerMelding] = useState('')
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) { window.location.href = '/inloggen'; return }
+
+      const idToken = await getIdToken(user)
+      setToken(idToken)
+
+      const [abRes, cfRes] = await Promise.all([
+        fetch('/api/admin/abonnementen', { headers: { Authorization: `Bearer ${idToken}` } }),
+        fetch('/api/admin/config'),
+      ])
+
+      if (abRes.status === 403) { setToegansFout(true); setLaden(false); return }
+
+      if (abRes.ok) setAbonnementen((await abRes.json()).abonnementen)
+      if (cfRes.ok) {
+        const data = await cfRes.json()
+        setConfig(data)
+        setNieuwBedrag((data.abonnementsBedrag / 100).toFixed(2).replace('.', ','))
+      }
+      setLaden(false)
+    })
+    return () => unsub()
+  }, [])
+
+  async function laadPartners(idToken: string) {
+    setPartnerLaden(true)
+    const res = await fetch('/api/admin/partner', { headers: { Authorization: `Bearer ${idToken}` } })
+    if (res.ok) setPartners((await res.json()).partners)
+    setPartnerLaden(false)
+  }
+
+  useEffect(() => {
+    if (tab === 'partners' && token) laadPartners(token)
+  }, [tab, token])
+
+  async function partnerAanmaken(e: React.FormEvent) {
+    e.preventDefault()
+    setPartnerAanmakenBezig(true)
+    setPartnerMelding('')
+    const res = await fetch('/api/admin/partner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ naam: nieuwPartnerNaam, email: nieuwPartnerEmail, iban: nieuwPartnerIban, land: 'BE' }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setPartnerMelding(`✅ Partner aangemaakt. Reset-link: ${data.resetLink}`)
+      setNieuwPartnerNaam('')
+      setNieuwPartnerEmail('')
+      setNieuwPartnerIban('')
+      laadPartners(token)
+    } else {
+      setPartnerMelding(`Fout: ${data.fout}`)
+    }
+    setPartnerAanmakenBezig(false)
+  }
+
+  async function uitbetalenPartner() {
+    setUitbPartnerBezig(true)
+    setUitbPartnerMelding('')
+    const res = await fetch('/api/admin/uitbetalen-partner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({}),
+    })
+    const data = await res.json()
+    setUitbPartnerMelding(data.verwerkt === 0
+      ? 'Geen openstaand tegoed om uit te betalen.'
+      : `${data.verwerkt} uitbetaling(en) geïnitieerd via Mollie.`)
+    setUitbPartnerBezig(false)
+  }
+
+  async function laadUitbetalingen() {
+    setUitbLaden(true)
+    const res = await fetch('/api/admin/uitbetalingen', { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) setUitbetalingen((await res.json()).uitbetalingen)
+    setUitbLaden(false)
+  }
+
+  useEffect(() => {
+    if (tab === 'uitbetalingen' && token) laadUitbetalingen()
+  }, [tab, token])
+
+  async function markeerUitbetaald(groep: UitbetalingGroep) {
+    setBezig(groep.oberId)
+    setMelding('')
+    const ids = groep.betalingen.map(b => b.id)
+    const res = await fetch('/api/admin/uitbetalingen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ oberId: groep.oberId, betalingIds: ids }),
+    })
+    if (res.ok) {
+      setMelding(`✅ ${groep.naam} gemarkeerd als uitbetaald (€${euro(groep.totaal)})`)
+      await laadUitbetalingen()
+    }
+    setBezig(null)
+  }
+
+  async function voerCronUit() {
+    setCronBezig(true)
+    setCronResultaat('')
+    const res = await fetch('/api/admin/cron', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    setCronResultaat(data.aantalVervallen === 0
+      ? 'Geen accounts vervallen.'
+      : `${data.aantalVervallen} account(s) op vervallen gezet.`)
+    setCronBezig(false)
+  }
+
+  async function configOpslaanHandler(e: React.FormEvent) {
+    e.preventDefault()
+    setConfigOpslaan(true)
+    setConfigOpgeslagen(false)
+    const bedragCenten = Math.round(parseFloat(nieuwBedrag.replace(',', '.')) * 100)
+    await fetch('/api/admin/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ abonnementsBedrag: bedragCenten }),
+    })
+    setConfigOpgeslagen(true)
+    setConfigOpslaan(false)
+  }
+
+  if (laden) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (toegangFout) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-8">
+          <p className="text-4xl mb-4">🔒</p>
+          <p className="text-xl font-bold text-gray-900">Geen toegang</p>
+          <p className="text-gray-500 mt-2">Dit scherm is alleen voor beheerders.</p>
+          <Link href="/dashboard" className="mt-4 inline-block text-brand-500 underline">Terug naar dashboard</Link>
+        </div>
+      </div>
+    )
+  }
+
+  const gefilterd = filter === 'alle' ? abonnementen : abonnementen.filter(a => a.status === filter)
+  const totaalActief = abonnementen.filter(a => a.status === 'actief').length
+  const totaalPending = abonnementen.filter(a => a.status === 'pending').length
+  const totaalVervallen = abonnementen.filter(a => a.status === 'vervallen').length
+  const maandOmzet = totaalActief * (config?.abonnementsBedrag ?? 2999)
+  const mcAandeel = Math.round(maandOmzet * (config?.millerCreativePercent ?? 42.5) / 100)
+  const shAandeel = Math.round(maandOmzet * (config?.belgianPartnerPercent ?? 42.5) / 100)
+  const marketingAandeel = maandOmzet - mcAandeel - shAandeel
+  const openUitbetalingTotaal = uitbetalingen.reduce((s, u) => s + u.totaal, 0)
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 px-4 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Image src="/logotd.png" alt="TipDirect" width={140} height={56} className="h-9 w-auto" />
+            <span className="bg-brand-100 text-brand-700 text-xs font-bold px-2 py-1 rounded-full">Admin</span>
+          </div>
+          <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-600">← Dashboard</Link>
+        </div>
+
+        {/* Tabs */}
+        <div className="max-w-4xl mx-auto mt-4 flex gap-1 bg-gray-100 p-1 rounded-xl">
+          {([
+            { id: 'abonnementen', label: 'Abonnementen' },
+            { id: 'uitbetalingen', label: `Uitbetalingen${uitbetalingen.length > 0 ? ` (${uitbetalingen.length})` : ''}` },
+            { id: 'partners', label: 'Partners' },
+            { id: 'instellingen', label: 'Instellingen' },
+          ] as { id: Tab; label: string }[]).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                tab === t.id ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto p-4 space-y-5">
+
+        {/* ── TAB: ABONNEMENTEN ── */}
+        {tab === 'abonnementen' && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: 'Actief', waarde: totaalActief, kleur: 'text-emerald-600' },
+                { label: 'Pending', waarde: totaalPending, kleur: 'text-amber-600' },
+                { label: 'Vervallen', waarde: totaalVervallen, kleur: 'text-red-500' },
+                { label: 'Totaal', waarde: abonnementen.length, kleur: 'text-gray-900' },
+              ].map(s => (
+                <div key={s.label} className="bg-white rounded-xl p-4 text-center shadow-sm">
+                  <p className={`text-3xl font-bold ${s.kleur}`}>{s.waarde}</p>
+                  <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold text-gray-900 mb-4">Maandelijkse omzet (actieve abonnementen)</h2>
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: 'Miller Creative', bedrag: mcAandeel, pct: config?.millerCreativePercent ?? 42.5 },
+                  { label: config?.belgianPartnerNaam ?? 'Strictly Hospitality', bedrag: shAandeel, pct: config?.belgianPartnerPercent ?? 42.5 },
+                  { label: 'Marketing', bedrag: marketingAandeel, pct: config?.marketingPercent ?? 15 },
+                ].map(r => (
+                  <div key={r.label} className="text-center p-3 bg-gray-50 rounded-xl">
+                    <p className="text-xl font-bold text-gray-900">€{euro(r.bedrag)}</p>
+                    <p className="text-xs text-gray-500 mt-1">{r.label}</p>
+                    <p className="text-xs text-gray-400">{r.pct}%</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                <p className="text-sm text-gray-500">Totale maandomzet ({totaalActief} actief)</p>
+                <p className="font-bold text-gray-900">€{euro(maandOmzet)}</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+                <h2 className="font-bold text-gray-900">Abonnementen</h2>
+                <div className="flex gap-1">
+                  {(['alle', 'actief', 'pending', 'vervallen'] as const).map(f => (
+                    <button key={f} onClick={() => setFilter(f)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all capitalize ${
+                        filter === f ? 'bg-brand-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                      }`}
+                    >{f}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {gefilterd.length === 0
+                  ? <div className="p-8 text-center text-gray-400">Geen resultaten</div>
+                  : gefilterd.map(a => (
+                    <div key={a.id} className="px-4 py-3 flex items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{a.naam}</p>
+                        <p className="text-xs text-gray-400 truncate">{a.email}</p>
+                        {a.iban && <p className="text-xs text-gray-400 font-mono mt-0.5">{a.iban}</p>}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${STATUS_KLEUR[a.status]}`}>{a.status}</span>
+                        {a.status === 'pending' && (
+                          <>
+                            <p className="text-xs text-gray-500 mt-1">€{euro(a.voldaan)} / €{euro(a.bedrag)}</p>
+                            <div className="w-20 bg-gray-200 rounded-full h-1.5 mt-1.5 ml-auto">
+                              <div className="h-1.5 bg-brand-500 rounded-full" style={{ width: `${Math.min(100, (a.voldaan / a.bedrag) * 100)}%` }} />
+                            </div>
+                          </>
+                        )}
+                        {a.status === 'actief' && a.actief_sinds && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            {new Date(a.actief_sinds).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── TAB: UITBETALINGEN ── */}
+        {tab === 'uitbetalingen' && (
+          <>
+            {melding && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                <p className="text-emerald-700 text-sm font-medium">{melding}</p>
+              </div>
+            )}
+
+            {uitbLaden ? (
+              <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : uitbetalingen.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+                <p className="text-3xl mb-3">✅</p>
+                <p className="font-semibold text-gray-900">Geen openstaande uitbetalingen</p>
+                <p className="text-sm text-gray-400 mt-1">Alle klant-fooien zijn uitbetaald.</p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-amber-900">Openstaand totaal</p>
+                    <p className="text-sm text-amber-700">{uitbetalingen.length} klant(en) wachten op uitbetaling</p>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-900">€{euro(openUitbetalingTotaal)}</p>
+                </div>
+
+                <div className="space-y-3">
+                  {uitbetalingen.map(u => (
+                    <div key={u.oberId} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                      <div className="p-4 flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-gray-900">{u.naam}</p>
+                          <p className="text-xs text-gray-400">{u.email}</p>
+                          {u.iban ? (
+                            <div className="mt-2 bg-gray-50 rounded-lg p-2">
+                              <p className="text-xs text-gray-500">Rekeningnummer</p>
+                              <p className="font-mono text-sm text-gray-900 font-medium">{u.iban}</p>
+                              {u.iban_naam && <p className="text-xs text-gray-500 mt-0.5">t.n.v. {u.iban_naam}</p>}
+                            </div>
+                          ) : (
+                            <div className="mt-2 bg-red-50 rounded-lg p-2">
+                              <p className="text-xs text-red-600 font-medium">Geen IBAN ingesteld</p>
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2">{u.betalingen.length} tip(s)</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-2xl font-bold text-gray-900">€{euro(u.totaal)}</p>
+                          <button
+                            onClick={() => markeerUitbetaald(u)}
+                            disabled={bezig === u.oberId || !u.iban}
+                            className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-all"
+                          >
+                            {bezig === u.oberId ? 'Bezig...' : 'Markeer uitbetaald'}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="border-t border-gray-50 divide-y divide-gray-50">
+                        {u.betalingen.slice(0, 5).map(b => (
+                          <div key={b.id} className="px-4 py-2 flex items-center justify-between">
+                            <p className="text-xs text-gray-400">
+                              {new Date(b.betaald_op).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <p className="text-xs font-medium text-gray-700">€{euro(b.netto_klant)}</p>
+                          </div>
+                        ))}
+                        {u.betalingen.length > 5 && (
+                          <div className="px-4 py-2">
+                            <p className="text-xs text-gray-400">+ {u.betalingen.length - 5} meer</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── TAB: PARTNERS ── */}
+        {tab === 'partners' && (
+          <>
+            {/* Nieuw partner aanmaken */}
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold text-gray-900 mb-4">Partner toevoegen</h2>
+              <form onSubmit={partnerAanmaken} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Naam</label>
+                    <input type="text" required value={nieuwPartnerNaam} onChange={e => setNieuwPartnerNaam(e.target.value)}
+                      placeholder="Strictly Hospitality"
+                      className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-sm text-gray-900" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">E-mail</label>
+                    <input type="email" required value={nieuwPartnerEmail} onChange={e => setNieuwPartnerEmail(e.target.value)}
+                      placeholder="info@partner.be"
+                      className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-sm text-gray-900" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">IBAN (uitbetaalrekening)</label>
+                  <input type="text" value={nieuwPartnerIban} onChange={e => setNieuwPartnerIban(e.target.value.toUpperCase())}
+                    placeholder="BE00 0000 0000 0000"
+                    className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-sm font-mono text-gray-900" />
+                </div>
+                <button type="submit" disabled={partnerAanmakenBezig}
+                  className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all">
+                  {partnerAanmakenBezig ? 'Aanmaken...' : 'Partner aanmaken'}
+                </button>
+              </form>
+              {partnerMelding && (
+                <div className="mt-3 bg-gray-50 rounded-xl p-3">
+                  <p className="text-sm text-gray-700 break-all">{partnerMelding}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Uitbetalen */}
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold text-gray-900 mb-1">Automatische uitbetaling</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Betaalt alle openstaande partner-tegoeden uit via Mollie bankoverschrijving.
+                Draait automatisch elke maand via cron — of handmatig hieronder.
+              </p>
+              <button onClick={uitbetalenPartner} disabled={uitbPartnerBezig}
+                className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all">
+                {uitbPartnerBezig ? 'Bezig...' : 'Nu uitbetalen'}
+              </button>
+              {uitbPartnerMelding && <p className="text-sm text-gray-600 mt-3">{uitbPartnerMelding}</p>}
+            </div>
+
+            {/* Partnerlijst */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-gray-100">
+                <h2 className="font-bold text-gray-900">Actieve partners</h2>
+              </div>
+              {partnerLaden ? (
+                <div className="p-8 flex justify-center">
+                  <div className="w-6 h-6 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : partners.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 text-sm">Nog geen partners aangemaakt.</div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {partners.map(p => (
+                    <div key={p.id} className="px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900">{p.naam}</p>
+                        <p className="text-xs text-gray-400">{p.email} · {p.land}</p>
+                        {p.iban && <p className="text-xs font-mono text-gray-400 mt-0.5">{p.iban}</p>}
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${p.actief ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {p.actief ? 'Actief' : 'Inactief'}
+                        </span>
+                        <a href={`/registreer?partner=${p.id}`} target="_blank"
+                          className="text-xs text-brand-500 hover:underline">
+                          Referral-link
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── TAB: INSTELLINGEN ── */}
+        {tab === 'instellingen' && (
+          <>
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold text-gray-900 mb-4">Abonnementsbedrag</h2>
+              <form onSubmit={configOpslaanHandler} className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">Bedrag (€)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">€</span>
+                    <input
+                      type="text"
+                      value={nieuwBedrag}
+                      onChange={(e) => setNieuwBedrag(e.target.value)}
+                      className="w-full pl-8 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-gray-900"
+                    />
+                  </div>
+                </div>
+                <button type="submit" disabled={configOpslaan}
+                  className="px-5 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all whitespace-nowrap">
+                  {configOpslaan ? 'Opslaan...' : 'Opslaan'}
+                </button>
+              </form>
+              {configOpgeslagen && <p className="text-emerald-600 text-sm mt-2">Opgeslagen.</p>}
+              <p className="text-xs text-gray-400 mt-3">
+                Geldt voor nieuwe abonnementen. Bestaande lopende abonnementen behouden hun oorspronkelijke bedrag.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold text-gray-900 mb-1">30-dagenregel</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Accounts die langer dan 30 dagen pending zijn zonder fooien te hebben ontvangen worden op vervallen gezet. Voer dit dagelijks uit, of stel een automatische cron in.
+              </p>
+              <button
+                onClick={voerCronUit}
+                disabled={cronBezig}
+                className="px-5 py-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all"
+              >
+                {cronBezig ? 'Bezig...' : 'Nu uitvoeren'}
+              </button>
+              {cronResultaat && <p className="text-sm text-gray-600 mt-3">{cronResultaat}</p>}
+            </div>
+          </>
+        )}
+
+      </div>
+    </div>
+  )
+}
