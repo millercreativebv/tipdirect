@@ -11,9 +11,9 @@ async function isAdmin(userId: string): Promise<boolean> {
 // POST /api/admin/cron — voer de 30-dagenregel uit
 // Kan ook worden aangeroepen via Vercel Cron (dan zonder auth, via CRON_SECRET header)
 export async function POST(req: NextRequest) {
-  // Vercel Cron gebruikt een secret header
-  const cronSecret = req.headers.get('x-cron-secret')
-  if (cronSecret && cronSecret === process.env.CRON_SECRET) {
+  // Vercel Cron stuurt Authorization: Bearer <CRON_SECRET>
+  const authHeader = req.headers.get('authorization')
+  if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
     const vervallen = await check30DagenRegel()
     return NextResponse.json({ ok: true, vervallen })
   }

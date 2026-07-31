@@ -10,9 +10,9 @@ async function isAdmin(userId: string): Promise<boolean> {
 
 // POST — betaal openstaand partner-tegoed uit via Mollie bankoverschrijving
 export async function POST(req: NextRequest) {
-  // Toegang: admin of Vercel cron
-  const cronSecret = req.headers.get('x-cron-secret')
-  const isCron = cronSecret && cronSecret === process.env.CRON_SECRET
+  // Toegang: admin of Vercel cron (Authorization: Bearer <CRON_SECRET>)
+  const authHeader = req.headers.get('authorization')
+  const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`
 
   if (!isCron) {
     const userId = await getUserId(req)
