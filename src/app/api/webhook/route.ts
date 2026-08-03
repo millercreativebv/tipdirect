@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
 
       // Medewerkers horen bij een uitbater: het abonnement loopt op de uitbater's account
       let abonnementOberId = oberId
+      let abonnementAccountType = oberData?.account_type ?? 'individueel'
       let partnerId = oberData?.aangebracht_door ?? null
 
       if (oberData?.account_type === 'medewerker' && oberData?.bedrijf_id) {
@@ -58,13 +59,15 @@ export async function POST(req: NextRequest) {
           .get()
         if (!uitbaterSnap.empty) {
           abonnementOberId = uitbaterSnap.docs[0].id
+          abonnementAccountType = 'bedrijf'
           partnerId = uitbaterSnap.docs[0].data().aangebracht_door ?? partnerId
         }
       }
 
       const { bestemming, abonnementNuActief } = await verwerkBetalingVoorAbonnement(
         abonnementOberId,
-        bedragCenten
+        bedragCenten,
+        abonnementAccountType
       )
 
       const feeVerdeling = bestemming === 'tipdirect' ? berekenFeeVerdeling(bedragCenten) : null

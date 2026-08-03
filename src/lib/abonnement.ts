@@ -15,15 +15,21 @@ export interface Abonnement {
   mollie_token: string | null
 }
 
-// Haal config op — abonnementsbedrag staat in /config/fees
-async function getAbonnementsBedrag(): Promise<number> {
+// Haal tarief op per account-type — instelbaar in admin dashboard
+async function getAbonnementsBedrag(accountType: string): Promise<number> {
   const snap = await adminDb.collection('config').doc('fees').get()
-  if (snap.exists) return snap.data()?.abonnementsBedrag ?? 2999
-  return 2999 // standaard €29,99 als config nog niet bestaat
+  if (snap.exists) {
+    const data = snap.data()!
+    if (accountType === 'bedrijf') {
+      return data.abonnementsBedragBedrijf ?? 6000
+    }
+    return data.abonnementsBedragOber ?? data.abonnementsBedrag ?? 2500
+  }
+  return accountType === 'bedrijf' ? 6000 : 2500
 }
 
 // Haal abonnement op voor een ober, maak het aan als het nog niet bestaat
-export async function getOfMaakAbonnement(oberId: string): Promise<Abonnement> {
+export async function getOfMaakAbonnement(oberId: string, accountType = 'individueel'): Promise<Abonnement> {
   const ref = adminDb.collection('abonnementen').doc(oberId)
   const snap = await ref.get()
 
@@ -31,7 +37,7 @@ export async function getOfMaakAbonnement(oberId: string): Promise<Abonnement> {
     return { oberId, ...snap.data() } as Abonnement
   }
 
-  const bedrag = await getAbonnementsBedrag()
+  const bedrag = await getAbonnementsBedrag(accountType)
   const nieuw: Omit<Abonnement, 'oberId'> = {
     bedrag,
     voldaan: 0,
@@ -51,10 +57,11 @@ export async function getOfMaakAbonnement(oberId: string): Promise<Abonnement> {
 // Geeft terug waar het geld naartoe gaat: 'tipdirect' of 'klant'
 export async function verwerkBetalingVoorAbonnement(
   oberId: string,
-  bedragCenten: number
+  bedragCenten: number,
+  accountType = 'individueel'
 ): Promise<{ bestemming: 'tipdirect' | 'klant'; abonnementNuActief: boolean }> {
   const ref = adminDb.collection('abonnementen').doc(oberId)
-  const abonnement = await getOfMaakAbonnement(oberId)
+  const abonnement = await getOfMaakAbonnement(oberId, accountType)
 
   if (abonnement.status === 'actief') {
     return { bestemming: 'klant', abonnementNuActief: false }

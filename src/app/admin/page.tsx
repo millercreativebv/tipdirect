@@ -21,6 +21,8 @@ type Abonnement = {
 
 type Config = {
   abonnementsBedrag: number
+  abonnementsBedragOber: number
+  abonnementsBedragBedrijf: number
   millerCreativePercent: number
   belgianPartnerPercent: number
   marketingPercent: number
@@ -66,6 +68,8 @@ export default function AdminDashboard() {
   const [configOpslaan, setConfigOpslaan] = useState(false)
   const [configOpgeslagen, setConfigOpgeslagen] = useState(false)
   const [nieuwBedrag, setNieuwBedrag] = useState('')
+  const [nieuwBedragOber, setNieuwBedragOber] = useState('')
+  const [nieuwBedragBedrijf, setNieuwBedragBedrijf] = useState('')
   const [filter, setFilter] = useState<'alle' | 'actief' | 'pending' | 'vervallen'>('alle')
   const [bezig, setBezig] = useState<string | null>(null)
   const [melding, setMelding] = useState('')
@@ -100,6 +104,8 @@ export default function AdminDashboard() {
         const data = await cfRes.json()
         setConfig(data)
         setNieuwBedrag((data.abonnementsBedrag / 100).toFixed(2).replace('.', ','))
+        setNieuwBedragOber(((data.abonnementsBedragOber ?? data.abonnementsBedrag ?? 2500) / 100).toFixed(2).replace('.', ','))
+        setNieuwBedragBedrijf(((data.abonnementsBedragBedrijf ?? 6000) / 100).toFixed(2).replace('.', ','))
       }
       setLaden(false)
     })
@@ -199,11 +205,16 @@ export default function AdminDashboard() {
     e.preventDefault()
     setConfigOpslaan(true)
     setConfigOpgeslagen(false)
-    const bedragCenten = Math.round(parseFloat(nieuwBedrag.replace(',', '.')) * 100)
+    const bedragOber = Math.round(parseFloat(nieuwBedragOber.replace(',', '.')) * 100)
+    const bedragBedrijf = Math.round(parseFloat(nieuwBedragBedrijf.replace(',', '.')) * 100)
     await fetch('/api/admin/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ abonnementsBedrag: bedragCenten }),
+      body: JSON.stringify({
+        abonnementsBedragOber: bedragOber,
+        abonnementsBedragBedrijf: bedragBedrijf,
+        abonnementsBedrag: bedragOber, // backwards compat voor bestaande code
+      }),
     })
     setConfigOpgeslagen(true)
     setConfigOpslaan(false)
@@ -537,29 +548,43 @@ export default function AdminDashboard() {
         {tab === 'instellingen' && (
           <>
             <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="font-bold text-gray-900 mb-4">Abonnementsbedrag</h2>
-              <form onSubmit={configOpslaanHandler} className="flex items-end gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs text-gray-500 mb-1">Bedrag (€)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">€</span>
-                    <input
-                      type="text"
-                      value={nieuwBedrag}
-                      onChange={(e) => setNieuwBedrag(e.target.value)}
-                      className="w-full pl-8 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-gray-900"
-                    />
+              <h2 className="font-bold text-gray-900 mb-1">Abonnementstarieven</h2>
+              <p className="text-xs text-gray-400 mb-4">Geldt voor nieuwe abonnementen. Bestaande behouden hun oorspronkelijke bedrag.</p>
+              <form onSubmit={configOpslaanHandler} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Individuele ober</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">€</span>
+                      <input
+                        type="text"
+                        value={nieuwBedragOber}
+                        onChange={(e) => setNieuwBedragOber(e.target.value)}
+                        className="w-full pl-8 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-gray-900"
+                        placeholder="25,00"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bedrijf / uitbater</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">€</span>
+                      <input
+                        type="text"
+                        value={nieuwBedragBedrijf}
+                        onChange={(e) => setNieuwBedragBedrijf(e.target.value)}
+                        className="w-full pl-8 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-gray-900"
+                        placeholder="60,00"
+                      />
+                    </div>
                   </div>
                 </div>
                 <button type="submit" disabled={configOpslaan}
-                  className="px-5 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all whitespace-nowrap">
-                  {configOpslaan ? 'Opslaan...' : 'Opslaan'}
+                  className="px-5 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all">
+                  {configOpslaan ? 'Opslaan...' : 'Tarieven opslaan'}
                 </button>
+                {configOpgeslagen && <p className="text-emerald-600 text-sm">Opgeslagen.</p>}
               </form>
-              {configOpgeslagen && <p className="text-emerald-600 text-sm mt-2">Opgeslagen.</p>}
-              <p className="text-xs text-gray-400 mt-3">
-                Geldt voor nieuwe abonnementen. Bestaande lopende abonnementen behouden hun oorspronkelijke bedrag.
-              </p>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-5">
