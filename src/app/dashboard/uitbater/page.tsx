@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { auth, db, type Ober, type Betaling, type Bedrijf } from '@/lib/firebase'
-import { onAuthStateChanged, signOut } from 'firebase/auth'
+import { onAuthStateChanged, signOut, getIdToken } from 'firebase/auth'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { euro } from '@/lib/utils'
 import Link from 'next/link'
@@ -14,10 +14,18 @@ type MedewerkerStats = {
   totaal: number
 }
 
+type AbonnementData = {
+  status: 'pending' | 'actief' | 'vervallen'
+  bedrag: number
+  voldaan: number
+  actief_sinds: string | null
+}
+
 export default function UitbaterDashboard() {
   const [uitbater, setUitbater] = useState<Ober | null>(null)
   const [bedrijf, setBedrijf] = useState<Bedrijf | null>(null)
   const [medewerkers, setMedewerkers] = useState<MedewerkerStats[]>([])
+  const [abonnement, setAbonnement] = useState<AbonnementData | null>(null)
   const [laden, setLaden] = useState(true)
 
   useEffect(() => {
@@ -62,6 +70,13 @@ export default function UitbaterDashboard() {
       stats.sort((a, b) => b.totaal - a.totaal)
 
       setMedewerkers(stats)
+
+      try {
+        const token = await getIdToken(user)
+        const ab = await fetch('/api/mijn/abonnement', { headers: { Authorization: `Bearer ${token}` } })
+        if (ab.ok) setAbonnement(await ab.json())
+      } catch { /* niet kritisch */ }
+
       setLaden(false)
     })
 
@@ -134,6 +149,38 @@ export default function UitbaterDashboard() {
           </div>
         </div>
 
+        {/* Abonnement */}
+        {abonnement && abonnement.status !== 'actief' && (
+          <div className={`rounded-xl p-4 shadow-sm ${abonnement.status === 'vervallen' ? 'bg-red-50 border border-red-100' : 'bg-white border border-gray-100'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-gray-700">Abonnement</p>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${abonnement.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600'}`}>
+                {abonnement.status === 'pending' ? 'Activering loopt' : 'Vervallen'}
+              </span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
+              <div
+                className="bg-brand-500 h-2 rounded-full transition-all"
+                style={{ width: `${Math.min(100, Math.round((abonnement.voldaan / abonnement.bedrag) * 100))}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              €{(abonnement.voldaan / 100).toFixed(2).replace('.', ',')} van €{(abonnement.bedrag / 100).toFixed(2).replace('.', ',')} voldaan — eerste fooien gaan naar activering
+            </p>
+          </div>
+        )}
+        {abonnement && abonnement.status === 'actief' && (
+          <div className="bg-green-50 border border-green-100 rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <span className="text-2xl">✅</span>
+            <div>
+              <p className="text-sm font-semibold text-green-800">Abonnement actief</p>
+              <p className="text-xs text-green-600">
+                Actief sinds {abonnement.actief_sinds ? new Date(abonnement.actief_sinds).toLocaleDateString('nl-NL') : '—'} · alle fooien gaan naar het team
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Snelkoppelingen */}
         <div className="grid grid-cols-2 gap-3">
           <Link
@@ -180,7 +227,7 @@ export default function UitbaterDashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900">{ober.naam}</p>
-                    <p className="text-xs text-gray-400">tipdirect.nl/{ober.gebruikersnaam}</p>
+                    <p className="text-xs text-gray-400">tipdirect.be/{ober.gebruikersnaam}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="font-bold text-brand-500">€{euro(totaal)}</p>
