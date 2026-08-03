@@ -42,16 +42,32 @@ export async function POST(req: NextRequest) {
       const oberId = betalingData.ober_id
       const bedragCenten = betalingData.bedrag
 
+      // Haal ober op om account_type te bepalen
+      const oberSnap = await adminDb.collection('obers').doc(oberId).get()
+      const oberData = oberSnap.data()
+
+      // Medewerkers horen bij een uitbater: het abonnement loopt op de uitbater's account
+      let abonnementOberId = oberId
+      let partnerId = oberData?.aangebracht_door ?? null
+
+      if (oberData?.account_type === 'medewerker' && oberData?.bedrijf_id) {
+        const uitbaterSnap = await adminDb.collection('obers')
+          .where('bedrijf_id', '==', oberData.bedrijf_id)
+          .where('account_type', '==', 'bedrijf')
+          .limit(1)
+          .get()
+        if (!uitbaterSnap.empty) {
+          abonnementOberId = uitbaterSnap.docs[0].id
+          partnerId = uitbaterSnap.docs[0].data().aangebracht_door ?? partnerId
+        }
+      }
+
       const { bestemming, abonnementNuActief } = await verwerkBetalingVoorAbonnement(
-        oberId,
+        abonnementOberId,
         bedragCenten
       )
 
       const feeVerdeling = bestemming === 'tipdirect' ? berekenFeeVerdeling(bedragCenten) : null
-
-      // Zoek de partner die deze ober heeft aangebracht
-      const oberSnap = await adminDb.collection('obers').doc(oberId).get()
-      const partnerId = oberSnap.data()?.aangebracht_door ?? null
 
       // Partner-tegoed bijhouden als de fooi naar TipDirect gaat (abonnementsbijdrage)
       if (bestemming === 'tipdirect' && partnerId && feeVerdeling) {

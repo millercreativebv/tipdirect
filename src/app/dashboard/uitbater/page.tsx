@@ -73,7 +73,7 @@ export default function UitbaterDashboard() {
 
       try {
         const token = await getIdToken(user)
-        const ab = await fetch('/api/mijn/team-abonnement', { headers: { Authorization: `Bearer ${token}` } })
+        const ab = await fetch('/api/mijn/abonnement', { headers: { Authorization: `Bearer ${token}` } })
         if (ab.ok) setAbonnement(await ab.json())
       } catch { /* niet kritisch */ }
 
