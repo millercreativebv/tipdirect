@@ -23,31 +23,41 @@ export default function BetaalPagina() {
   const [fout, setFout] = useState('')
 
   useEffect(() => {
+    let actief = true
+
     async function laadOber() {
-      const q = query(
-        collection(db, 'obers'),
-        where('gebruikersnaam', '==', gebruikersnaam)
-      )
-      const snap = await getDocs(q)
+      try {
+        const q = query(
+          collection(db, 'obers'),
+          where('gebruikersnaam', '==', gebruikersnaam)
+        )
+        const snap = await getDocs(q)
 
-      if (snap.empty || !snap.docs[0].data().actief) {
-        setOber(null)
-      } else {
-        const oberDoc = snap.docs[0]
-        const oberData = { id: oberDoc.id, ...oberDoc.data() } as Ober
-        setOber(oberData)
+        if (!actief) return
 
-        if (oberData.account_type === 'medewerker' && oberData.bedrijf_id) {
-          const bedrijfSnap = await getDoc(doc(db, 'bedrijven', oberData.bedrijf_id))
-          if (bedrijfSnap.exists()) {
-            setBedrijf({ id: bedrijfSnap.id, ...bedrijfSnap.data() } as Bedrijf)
+        if (snap.empty || !snap.docs[0].data().actief) {
+          setOber(null)
+        } else {
+          const oberDoc = snap.docs[0]
+          const oberData = { id: oberDoc.id, ...oberDoc.data() } as Ober
+          setOber(oberData)
+
+          if (oberData.account_type === 'medewerker' && oberData.bedrijf_id) {
+            const bedrijfSnap = await getDoc(doc(db, 'bedrijven', oberData.bedrijf_id))
+            if (actief && bedrijfSnap.exists()) {
+              setBedrijf({ id: bedrijfSnap.id, ...bedrijfSnap.data() } as Bedrijf)
+            }
           }
         }
+      } catch {
+        if (actief) setOber(null)
+      } finally {
+        if (actief) setLaden(false)
       }
-      setLaden(false)
     }
 
     laadOber()
+    return () => { actief = false }
   }, [gebruikersnaam])
 
   const huidigBedrag = gekozenBedrag ?? (eigenBedrag ? parseFloat(eigenBedrag.replace(',', '.')) : null)

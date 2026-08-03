@@ -14,8 +14,8 @@ export default function InloggenPagina() {
   const [laden, setLaden] = useState(false)
   const [fout, setFout] = useState('')
 
-  async function inloggen(e: React.FormEvent) {
-    e.preventDefault()
+  async function inloggen() {
+    if (laden) return
     setLaden(true)
     setFout('')
 
@@ -28,6 +28,10 @@ export default function InloggenPagina() {
     }
   }
 
+  function opToets(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') inloggen()
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-brand-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
@@ -38,14 +42,15 @@ export default function InloggenPagina() {
           <p className="text-gray-500">Inloggen op je account</p>
         </div>
 
-        <form onSubmit={inloggen} className="space-y-4">
+        <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">E-mailadres</label>
             <input
               type="email"
-              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={opToets}
+              autoComplete="email"
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
               placeholder="jouw@email.nl"
             />
@@ -54,9 +59,10 @@ export default function InloggenPagina() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Wachtwoord</label>
             <input
               type="password"
-              required
               value={wachtwoord}
               onChange={(e) => setWachtwoord(e.target.value)}
+              onKeyDown={opToets}
+              autoComplete="current-password"
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
               placeholder="Jouw wachtwoord"
             />
@@ -65,7 +71,8 @@ export default function InloggenPagina() {
           {fout && <p className="text-red-500 text-sm">{fout}</p>}
 
           <button
-            type="submit"
+            type="button"
+            onClick={inloggen}
             disabled={laden}
             className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all"
           >
@@ -76,7 +83,7 @@ export default function InloggenPagina() {
             Nog geen account?{' '}
             <Link href="/registreer" className="text-brand-700 font-medium">Aanmelden</Link>
           </p>
-        </form>
+        </div>
       </div>
     </div>
   )

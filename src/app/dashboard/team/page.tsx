@@ -5,6 +5,7 @@ import { auth, db, type Ober } from '@/lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
 import Link from 'next/link'
+import QRCode from 'qrcode'
 
 type FormData = { naam: string; gebruikersnaam: string; fotoUrl: string }
 const LEEG: FormData = { naam: '', gebruikersnaam: '', fotoUrl: '' }
@@ -18,6 +19,25 @@ export default function TeamPagina() {
   const [form, setForm] = useState<FormData>(LEEG)
   const [opslaan, setOpslaan] = useState(false)
   const [fout, setFout] = useState('')
+  const [qrMap, setQrMap] = useState<Record<string, string>>({})
+  const [openQr, setOpenQr] = useState<string | null>(null)
+
+  async function toggleQr(ober: Ober) {
+    if (openQr === ober.id) { setOpenQr(null); return }
+    if (!qrMap[ober.id]) {
+      const url = `https://tipdirect.be/${ober.gebruikersnaam}`
+      const dataUrl = await QRCode.toDataURL(url, { width: 300, margin: 1, color: { dark: '#111827', light: '#ffffff' } })
+      setQrMap(prev => ({ ...prev, [ober.id]: dataUrl }))
+    }
+    setOpenQr(ober.id)
+  }
+
+  function downloadQr(ober: Ober) {
+    const a = document.createElement('a')
+    a.href = qrMap[ober.id]
+    a.download = `qr-${ober.gebruikersnaam}.png`
+    a.click()
+  }
 
   async function laadMedewerkers(bedrijfId: string) {
     const snap = await getDocs(
@@ -179,7 +199,7 @@ export default function TeamPagina() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Gebruikersnaam</label>
                 <div className="flex items-center border-2 border-gray-200 rounded-xl focus-within:border-brand-500 overflow-hidden">
-                  <span className="pl-4 text-gray-400 text-sm whitespace-nowrap">tipdirect.nl/</span>
+                  <span className="pl-4 text-gray-400 text-sm whitespace-nowrap">tipdirect.be/</span>
                   <input
                     type="text"
                     required
@@ -255,7 +275,7 @@ export default function TeamPagina() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900">{ober.naam}</p>
-                      <p className="text-xs text-gray-400">tipdirect.nl/{ober.gebruikersnaam}</p>
+                      <p className="text-xs text-gray-400">tipdirect.be/{ober.gebruikersnaam}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ober.actief ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
@@ -264,7 +284,7 @@ export default function TeamPagina() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 mt-3 ml-13">
+                  <div className="flex flex-wrap gap-2 mt-3">
                     <button
                       onClick={() => bewerkStart(ober)}
                       className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:border-brand-500 hover:text-brand-600 transition-all"
@@ -276,6 +296,12 @@ export default function TeamPagina() {
                       className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:border-gray-300 transition-all"
                     >
                       {ober.actief ? 'Deactiveren' : 'Activeren'}
+                    </button>
+                    <button
+                      onClick={() => toggleQr(ober)}
+                      className={`text-xs px-3 py-1.5 border rounded-lg transition-all ${openQr === ober.id ? 'border-brand-500 text-brand-600 bg-brand-50' : 'border-gray-200 text-gray-600 hover:border-brand-500 hover:text-brand-600'}`}
+                    >
+                      QR-code
                     </button>
                     <a
                       href={`/${ober.gebruikersnaam}`}
@@ -291,6 +317,19 @@ export default function TeamPagina() {
                       Verwijderen
                     </button>
                   </div>
+
+                  {openQr === ober.id && qrMap[ober.id] && (
+                    <div className="mt-3 p-4 bg-gray-50 rounded-xl flex flex-col items-center gap-3">
+                      <img src={qrMap[ober.id]} alt={`QR code ${ober.naam}`} className="w-36 h-36" />
+                      <p className="text-xs text-gray-500">tipdirect.be/{ober.gebruikersnaam}</p>
+                      <button
+                        onClick={() => downloadQr(ober)}
+                        className="text-xs px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-all"
+                      >
+                        QR downloaden als PNG
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
