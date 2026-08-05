@@ -7,6 +7,7 @@ import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'fireb
 import { getIdToken } from 'firebase/auth'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 const LANDEN = ['België', 'Nederland', 'Luxemburg', 'Duitsland', 'Frankrijk', 'Andere']
 
@@ -49,6 +50,14 @@ export default function ProfielPagina() {
   const [statutaireNaam, setStatutaireNaam] = useState('')
   const [kvk, setKvk] = useState('')
 
+  // Mollie Connect
+  const [mollieConnected, setMollieConnected] = useState(false)
+  const [mollieNaam, setMollieNaam] = useState('')
+  const [mollieBezig, setMollieBezig] = useState(false)
+  const [mollieMelding, setMollieMelding] = useState('')
+
+  const searchParams = useSearchParams()
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { window.location.href = '/inloggen'; return }
@@ -74,6 +83,11 @@ export default function ProfielPagina() {
       setLand(data.adres_land ?? 'België')
       setBtwNummer(data.btw_nummer ?? '')
 
+      // Mollie Connect status
+      const d = snap.data() as Record<string, unknown>
+      setMollieConnected(d.mollie_connected === true)
+      setMollieNaam((d.mollie_connected_naam as string) ?? '')
+
       if (data.account_type === 'bedrijf' && data.bedrijf_id) {
         setBedrijfId(data.bedrijf_id)
         const bedrijfSnap = await getDoc(doc(db, 'bedrijven', data.bedrijf_id))
@@ -88,6 +102,53 @@ export default function ProfielPagina() {
     })
     return () => unsubscribe()
   }, [])
+
+  // Toon melding na terugkomst van Mollie OAuth
+  useEffect(() => {
+    const status = searchParams.get('mollie')
+    if (status === 'verbonden') setMollieMelding('Mollie account succesvol gekoppeld!')
+    if (status === 'fout') setMollieMelding('Koppelen mislukt. Probeer het opnieuw.')
+  }, [searchParams])
+
+  async function mollieKoppelen() {
+    setMollieBezig(true)
+    setMollieMelding('')
+    try {
+      const user = auth.currentUser
+      if (!user) throw new Error('Niet ingelogd')
+      const token = await getIdToken(user)
+      const res = await fetch('/api/mollie/connect-init', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.fout ?? 'Fout')
+      window.location.href = data.url
+    } catch {
+      setMollieMelding('Koppelen mislukt. Probeer het opnieuw.')
+      setMollieBezig(false)
+    }
+  }
+
+  async function mollieOntkoppelen() {
+    if (!confirm('Weet je zeker dat je je Mollie account wilt ontkoppelen? Fooien worden dan niet meer automatisch uitbetaald.')) return
+    setMollieBezig(true)
+    try {
+      const user = auth.currentUser
+      if (!user) throw new Error('Niet ingelogd')
+      const token = await getIdToken(user)
+      await fetch('/api/mollie/disconnect', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setMollieConnected(false)
+      setMollieNaam('')
+      setMollieMelding('Mollie account ontkoppeld.')
+    } catch {
+      setMollieMelding('Ontkoppelen mislukt.')
+    }
+    setMollieBezig(false)
+  }
 
   async function profielOpslaan(e: React.FormEvent) {
     e.preventDefault()
@@ -404,6 +465,72 @@ export default function ProfielPagina() {
             {opslaan ? 'Opslaan...' : 'Gegevens opslaan'}
           </button>
         </form>
+
+        {/* Mollie Connect */}
+        <div className="bg-white rounded-xl shadow-sm p-5 mt-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">💳</span>
+            <h2 className="font-semibold text-gray-900">Uitbetaling via Mollie</h2>
+          </div>
+
+          {mollieConnected ? (
+            <>
+              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800">Mollie gekoppeld</p>
+                  {mollieNaam && <p className="text-xs text-emerald-600">{mollieNaam}</p>}
+                  <p className="text-xs text-emerald-600 mt-0.5">Fooien worden automatisch uitbetaald op je Mollie-rekening.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={mollieOntkoppelen}
+                disabled={mollieBezig}
+                className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+              >
+                {mollieBezig ? 'Bezig...' : 'Mollie ontkoppelen'}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-gray-500">
+                Koppel je Mollie account zodat fooien automatisch en direct op jouw rekening worden gestort.
+                Miller Creative beheert dan geen geld van jou.
+              </p>
+              <button
+                type="button"
+                onClick={mollieKoppelen}
+                disabled={mollieBezig}
+                className="w-full py-3 bg-[#1a1a2e] hover:bg-[#16213e] disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                {mollieBezig ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Doorsturen naar Mollie...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                    </svg>
+                    Mollie account koppelen
+                  </>
+                )}
+              </button>
+            </>
+          )}
+
+          {mollieMelding && (
+            <p className={`text-sm font-medium ${mollieMelding.includes('mislukt') || mollieMelding.includes('Fout') ? 'text-red-600' : 'text-emerald-700'}`}>
+              {mollieMelding}
+            </p>
+          )}
+        </div>
 
         {/* IBAN — apart formulier */}
         <form onSubmit={ibanOpslaanHandler} className="space-y-5 mt-5">

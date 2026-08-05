@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mollie, MOLLIE_FEE_CENTEN } from '@/lib/mollie'
+import { mollie, MOLLIE_FEE_CENTEN, getGeldigAccessToken, verbondenMollieClient } from '@/lib/mollie'
 import { adminDb } from '@/lib/firebase-admin'
 import { verwerkBetalingVoorAbonnement } from '@/lib/abonnement'
+import type { Payment } from '@mollie/api-client'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,18 +13,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ fout: 'Geen betaling ID' }, { status: 400 })
     }
 
-    const mollieBetaling = await mollie.payments.get(mollieId)
-
-    const statusMap: Record<string, string> = {
-      paid: 'betaald',
-      failed: 'mislukt',
-      canceled: 'mislukt',
-      expired: 'mislukt',
-      refunded: 'teruggestort',
-    }
-
-    const nieuweStatus = statusMap[mollieBetaling.status] ?? 'open'
-
+    // Haal betalingsdocument op uit Firestore
     const snap = await adminDb
       .collection('betalingen')
       .where('mollie_id', '==', mollieId)
@@ -38,68 +28,130 @@ export async function POST(req: NextRequest) {
     const betalingDoc = snap.docs[0]
     const betalingData = betalingDoc.data()
 
-    if (nieuweStatus === 'betaald' && !betalingData.abonnement_verwerkt) {
-      const oberId = betalingData.ober_id
-      const bedragCenten = betalingData.bedrag
+    // Verifieer betaling bij Mollie — gebruik connected account token bij Mollie Connect
+    let mollieBetaling: Payment
+    if (betalingData.via_mollie_connect) {
+      const oberSnap = await adminDb.collection('obers').doc(betalingData.ober_id).get()
+      const oberData = oberSnap.data()
 
-      // Directe abonnementsbetaling door uitbater (bedrijf)
-      if (betalingData.betaling_type === 'abonnement') {
+      if (!oberData?.mollie_access_token) {
+        // Token verdwenen (ontkoppeld na betaling) — lees via eigen account als fallback
+        mollieBetaling = await mollie.payments.get(mollieId)
+      } else {
+        try {
+          const tokenResult = await getGeldigAccessToken({
+            mollie_access_token: oberData.mollie_access_token,
+            mollie_refresh_token: oberData.mollie_refresh_token,
+            mollie_token_expires_at: oberData.mollie_token_expires_at,
+          })
+          if (tokenResult.vernieuwd && tokenResult.nieuweData) {
+            await adminDb.collection('obers').doc(betalingData.ober_id).update(tokenResult.nieuweData)
+          }
+          const verbonden = verbondenMollieClient(tokenResult.accessToken)
+          mollieBetaling = await verbonden.payments.get(mollieId)
+        } catch {
+          mollieBetaling = await mollie.payments.get(mollieId)
+        }
+      }
+    } else {
+      mollieBetaling = await mollie.payments.get(mollieId)
+    }
+
+    const statusMap: Record<string, string> = {
+      paid: 'betaald',
+      failed: 'mislukt',
+      canceled: 'mislukt',
+      expired: 'mislukt',
+      refunded: 'teruggestort',
+    }
+    const nieuweStatus = statusMap[mollieBetaling.status] ?? 'open'
+
+    if (nieuweStatus !== 'betaald' || betalingData.abonnement_verwerkt) {
+      await betalingDoc.ref.update({
+        status: nieuweStatus,
+        betaald_op: nieuweStatus === 'betaald' ? new Date().toISOString() : null,
+      })
+      return NextResponse.json({ ok: true })
+    }
+
+    const oberId = betalingData.ober_id as string
+    const bedragCenten = betalingData.bedrag as number
+
+    // ─── Directe abonnementsbetaling (bedrijf) ───────────────────────────────
+    if (betalingData.betaling_type === 'abonnement') {
+      const oberSnap = await adminDb.collection('obers').doc(oberId).get()
+      const partnerId = oberSnap.data()?.aangebracht_door ?? null
+
+      await adminDb.collection('abonnementen').doc(oberId).set({
+        status: 'actief',
+        bedrag: bedragCenten,
+        voldaan: bedragCenten,
+        start_datum: new Date().toISOString(),
+        actief_sinds: new Date().toISOString(),
+      }, { merge: true })
+
+      await adminDb.collection('obers').doc(oberId).update({ abonnement_actief: true })
+
+      const feeVerdeling = berekenFeeVerdeling(bedragCenten)
+      if (partnerId) {
+        await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
+      }
+
+      await betalingDoc.ref.update({
+        status: nieuweStatus,
+        betaald_op: new Date().toISOString(),
+        bestemming: 'tipdirect',
+        fee_verdeling: feeVerdeling,
+        partner_id: partnerId,
+        abonnement_verwerkt: true,
+        abonnement_nu_actief: true,
+      })
+
+      return NextResponse.json({ ok: true })
+    }
+
+    // ─── Fooi via Mollie Connect ──────────────────────────────────────────────
+    if (betalingData.via_mollie_connect) {
+      const applicationFeeCenten = (betalingData.application_fee_centen as number | null) ?? 0
+
+      // Bepaal bestemming op basis van of er application fee was
+      // Bij pending individuel: applicationFee = volledige bijdrage → 'tipdirect'
+      // Bij actief: geen fee → money staat al op ober's Mollie → 'klant'
+      const bestemming: 'tipdirect' | 'klant' = applicationFeeCenten > 0 ? 'tipdirect' : 'klant'
+
+      let abonnementNuActief = false
+      let partnerId: string | null = null
+
+      if (bestemming === 'tipdirect') {
+        // Verwerk de applicationFee als abonnementsbijdrage
         const oberSnap = await adminDb.collection('obers').doc(oberId).get()
-        const partnerId = oberSnap.data()?.aangebracht_door ?? null
+        partnerId = oberSnap.data()?.aangebracht_door ?? null
 
-        await adminDb.collection('abonnementen').doc(oberId).set({
-          status: 'actief',
-          bedrag: bedragCenten,
-          voldaan: bedragCenten,
-          start_datum: new Date().toISOString(),
-          actief_sinds: new Date().toISOString(),
-        }, { merge: true })
+        const { abonnementNuActief: nuActief } = await verwerkBetalingVoorAbonnement(
+          oberId,
+          applicationFeeCenten,
+          'individueel'
+        )
+        abonnementNuActief = nuActief
 
-        await adminDb.collection('obers').doc(oberId).update({
-          abonnement_actief: true,
-        })
-
-        const feeVerdeling = berekenFeeVerdeling(bedragCenten)
-        if (partnerId) {
+        const feeVerdeling = berekenFeeVerdeling(applicationFeeCenten)
+        if (partnerId && feeVerdeling.strictly_hospitality > 0) {
           await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
         }
 
         await betalingDoc.ref.update({
           status: nieuweStatus,
           betaald_op: new Date().toISOString(),
-          bestemming: 'tipdirect',
-          fee_verdeling: feeVerdeling,
+          bestemming,
+          abonnement_bijdrage: applicationFeeCenten,
+          netto_klant: null,
+          mollie_fee: MOLLIE_FEE_CENTEN,
           partner_id: partnerId,
           abonnement_verwerkt: true,
-          abonnement_nu_actief: true,
+          abonnement_nu_actief: abonnementNuActief,
         })
-
-        return NextResponse.json({ ok: true })
-      }
-
-      // Normale fooi — haal ober op om account_type te bepalen
-      const oberSnap = await adminDb.collection('obers').doc(oberId).get()
-      const oberData = oberSnap.data()
-
-      let abonnementOberId = oberId
-      let abonnementAccountType = oberData?.account_type ?? 'individueel'
-      let partnerId = oberData?.aangebracht_door ?? null
-
-      if (oberData?.account_type === 'medewerker' && oberData?.bedrijf_id) {
-        const uitbaterSnap = await adminDb.collection('obers')
-          .where('bedrijf_id', '==', oberData.bedrijf_id)
-          .where('account_type', '==', 'bedrijf')
-          .limit(1)
-          .get()
-        if (!uitbaterSnap.empty) {
-          abonnementOberId = uitbaterSnap.docs[0].id
-          abonnementAccountType = 'bedrijf'
-          partnerId = uitbaterSnap.docs[0].data().aangebracht_door ?? partnerId
-        }
-      }
-
-      // Bedrijfsaccounts betalen abonnement apart → fooi gaat altijd naar uitbater
-      if (abonnementAccountType === 'bedrijf') {
+      } else {
+        // Actief account — geld staat al op ober's Mollie, geen verdere actie nodig
         await betalingDoc.ref.update({
           status: nieuweStatus,
           betaald_op: new Date().toISOString(),
@@ -107,41 +159,73 @@ export async function POST(req: NextRequest) {
           netto_klant: bedragCenten - MOLLIE_FEE_CENTEN,
           mollie_fee: MOLLIE_FEE_CENTEN,
           abonnement_verwerkt: true,
+          uitbetaald: true, // automatisch via Mollie Connect
+          uitbetaald_op: new Date().toISOString(),
         })
-        return NextResponse.json({ ok: true })
       }
 
-      // Individuele obers: tips financieren het abonnement
-      const { bestemming, abonnementNuActief } = await verwerkBetalingVoorAbonnement(
-        abonnementOberId,
-        bedragCenten,
-        abonnementAccountType
-      )
+      return NextResponse.json({ ok: true })
+    }
 
-      const feeVerdeling = bestemming === 'tipdirect' ? berekenFeeVerdeling(bedragCenten) : null
+    // ─── Fooi zonder Mollie Connect (fallback, handmatige uitbetaling) ────────
+    const oberSnap = await adminDb.collection('obers').doc(oberId).get()
+    const oberData = oberSnap.data()
 
-      if (bestemming === 'tipdirect' && partnerId && feeVerdeling) {
-        await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
+    let abonnementOberId = oberId
+    let abonnementAccountType = oberData?.account_type ?? 'individueel'
+    let partnerId = oberData?.aangebracht_door ?? null
+
+    // Medewerker → gebruik uitbater's abonnement
+    if (oberData?.account_type === 'medewerker' && oberData?.bedrijf_id) {
+      const uitbaterSnap = await adminDb.collection('obers')
+        .where('bedrijf_id', '==', oberData.bedrijf_id)
+        .where('account_type', '==', 'bedrijf')
+        .limit(1)
+        .get()
+      if (!uitbaterSnap.empty) {
+        abonnementOberId = uitbaterSnap.docs[0].id
+        abonnementAccountType = 'bedrijf'
+        partnerId = uitbaterSnap.docs[0].data().aangebracht_door ?? partnerId
       }
+    }
 
+    // Bedrijf betaalt abonnement apart → tip altijd naar 'klant'
+    if (abonnementAccountType === 'bedrijf') {
       await betalingDoc.ref.update({
         status: nieuweStatus,
         betaald_op: new Date().toISOString(),
-        bestemming,
-        abonnement_bijdrage: bestemming === 'tipdirect' ? bedragCenten : null,
+        bestemming: 'klant',
+        netto_klant: bedragCenten - MOLLIE_FEE_CENTEN,
         mollie_fee: MOLLIE_FEE_CENTEN,
-        netto_klant: bestemming === 'klant' ? bedragCenten - MOLLIE_FEE_CENTEN : null,
-        fee_verdeling: feeVerdeling,
-        partner_id: partnerId,
         abonnement_verwerkt: true,
-        abonnement_nu_actief: abonnementNuActief,
       })
-    } else {
-      await betalingDoc.ref.update({
-        status: nieuweStatus,
-        betaald_op: nieuweStatus === 'betaald' ? new Date().toISOString() : null,
-      })
+      return NextResponse.json({ ok: true })
     }
+
+    // Individueel zonder Mollie Connect: tip-omleiding voor abonnement
+    const { bestemming, abonnementNuActief } = await verwerkBetalingVoorAbonnement(
+      abonnementOberId,
+      bedragCenten,
+      abonnementAccountType
+    )
+
+    const feeVerdeling = bestemming === 'tipdirect' ? berekenFeeVerdeling(bedragCenten) : null
+    if (bestemming === 'tipdirect' && partnerId && feeVerdeling) {
+      await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
+    }
+
+    await betalingDoc.ref.update({
+      status: nieuweStatus,
+      betaald_op: new Date().toISOString(),
+      bestemming,
+      abonnement_bijdrage: bestemming === 'tipdirect' ? bedragCenten : null,
+      mollie_fee: MOLLIE_FEE_CENTEN,
+      netto_klant: bestemming === 'klant' ? bedragCenten - MOLLIE_FEE_CENTEN : null,
+      fee_verdeling: feeVerdeling,
+      partner_id: partnerId,
+      abonnement_verwerkt: true,
+      abonnement_nu_actief: abonnementNuActief,
+    })
 
     return NextResponse.json({ ok: true })
   } catch (err) {
@@ -157,7 +241,6 @@ function berekenFeeVerdeling(bedragCenten: number) {
   return { miller_creative: mc, strictly_hospitality: sh, marketing }
 }
 
-// Voeg partner-tegoed toe in de maandelijkse bucket
 async function verwerkPartnerTegoed(partnerId: string, bedragCenten: number, betalingId: string) {
   const nu = new Date()
   const maand = `${nu.getFullYear()}-${String(nu.getMonth() + 1).padStart(2, '0')}`
