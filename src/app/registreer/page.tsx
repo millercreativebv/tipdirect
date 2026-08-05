@@ -10,19 +10,36 @@ import Image from 'next/image'
 type Stap = 'keuze' | 'account' | 'profiel' | 'klaar'
 type AccountType = 'individueel' | 'bedrijf'
 
+const LANDEN = ['België', 'Nederland', 'Luxemburg', 'Duitsland', 'Frankrijk', 'Andere']
+
 export default function RegistreerPagina() {
   const [stap, setStap] = useState<Stap>('keuze')
   const [accountType, setAccountType] = useState<AccountType>('individueel')
   const [email, setEmail] = useState('')
   const [wachtwoord, setWachtwoord] = useState('')
-  const [naam, setNaam] = useState('')
-  const [gebruikersnaam, setGebruikersnaam] = useState('')
-  const [bedrijfsnaam, setBedrijfsnaam] = useState('')
-  const [logoUrl, setLogoUrl] = useState('')
   const [userId, setUserId] = useState('')
   const [partnerId, setPartnerId] = useState<string | null>(null)
   const [laden, setLaden] = useState(false)
   const [fout, setFout] = useState('')
+
+  // Individueel
+  const [naam, setNaam] = useState('')
+  const [gebruikersnaam, setGebruikersnaam] = useState('')
+
+  // Bedrijf
+  const [bedrijfsnaam, setBedrijfsnaam] = useState('')
+  const [statutaireNaam, setStatutaireNaam] = useState('')
+
+  // Gedeeld (NAW)
+  const [straat, setStraat] = useState('')
+  const [postcode, setPostcode] = useState('')
+  const [stad, setStad] = useState('')
+  const [land, setLand] = useState('België')
+  const [telefoon, setTelefoon] = useState('')
+
+  // Bedrijf fiscaal
+  const [kvk, setKvk] = useState('')
+  const [btwNummer, setBtwNummer] = useState('')
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -39,7 +56,6 @@ export default function RegistreerPagina() {
     e.preventDefault()
     setLaden(true)
     setFout('')
-
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, wachtwoord)
       setUserId(user.uid)
@@ -63,8 +79,7 @@ export default function RegistreerPagina() {
     setFout('')
 
     const slug = (accountType === 'bedrijf' ? bedrijfsnaam : naam)
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]/g, '')
 
     if (slug.length < 3) {
       setFout('Naam moet minimaal 3 letters bevatten.')
@@ -95,9 +110,16 @@ export default function RegistreerPagina() {
         const bedrijfRef = doc(collection(db, 'bedrijven'))
         await setDoc(bedrijfRef, {
           naam: bedrijfsnaam,
+          statutaire_naam: statutaireNaam || null,
           email,
-          kvk: null,
-          logo_url: logoUrl || null,
+          telefoon: telefoon || null,
+          adres_straat: straat || null,
+          adres_postcode: postcode || null,
+          adres_stad: stad || null,
+          adres_land: land,
+          kvk: kvk || null,
+          btw_nummer: btwNummer || null,
+          logo_url: null,
           aangemaakt_op: new Date().toISOString(),
         })
 
@@ -105,12 +127,18 @@ export default function RegistreerPagina() {
           email,
           naam: bedrijfsnaam,
           gebruikersnaam: slugGebruikersnaam,
-          foto_url: logoUrl || null,
+          foto_url: null,
           iban: null,
           iban_naam: null,
           actief: false,
           account_type: 'bedrijf',
           bedrijf_id: bedrijfRef.id,
+          telefoon: telefoon || null,
+          adres_straat: straat || null,
+          adres_postcode: postcode || null,
+          adres_stad: stad || null,
+          adres_land: land,
+          btw_nummer: btwNummer || null,
           aangebracht_door: partnerId,
           aangemaakt_op: new Date().toISOString(),
         })
@@ -125,6 +153,12 @@ export default function RegistreerPagina() {
           actief: true,
           account_type: 'individueel',
           bedrijf_id: null,
+          telefoon: telefoon || null,
+          adres_straat: straat || null,
+          adres_postcode: postcode || null,
+          adres_stad: stad || null,
+          adres_land: land,
+          btw_nummer: btwNummer || null,
           aangebracht_door: partnerId,
           aangemaakt_op: new Date().toISOString(),
         })
@@ -138,10 +172,8 @@ export default function RegistreerPagina() {
   }
 
   if (stap === 'klaar') {
-    const slug = (accountType === 'individueel'
-      ? gebruikersnaam
-      : bedrijfsnaam
-    ).toLowerCase().replace(/[^a-z0-9]/g, '')
+    const slug = (accountType === 'individueel' ? gebruikersnaam : bedrijfsnaam)
+      .toLowerCase().replace(/[^a-z0-9]/g, '')
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-brand-50 to-white flex items-center justify-center p-4">
@@ -157,7 +189,7 @@ export default function RegistreerPagina() {
           </p>
           {accountType === 'individueel' && (
             <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 mb-6 font-mono text-brand-700 break-all">
-              tipdirect.nl/{slug}
+              tipdirect.be/{slug}
             </div>
           )}
           <Link
@@ -172,8 +204,8 @@ export default function RegistreerPagina() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-brand-50 to-white flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-gradient-to-b from-brand-50 to-white flex items-start justify-center p-4 pt-8">
+      <div className="w-full max-w-sm pb-12">
         <div className="text-center mb-8">
           <Link href="/">
             <Image src="/logotd.png" alt="TipDirect" width={200} height={80} className="h-14 w-auto mx-auto mb-3" />
@@ -185,7 +217,6 @@ export default function RegistreerPagina() {
           </p>
         </div>
 
-        {/* Stap indicator */}
         {stap !== 'keuze' && (
           <div className="flex items-center justify-center gap-2 mb-8">
             {['account', 'profiel'].map((s, i) => (
@@ -211,12 +242,10 @@ export default function RegistreerPagina() {
               className="w-full bg-white border-2 border-gray-200 hover:border-brand-500 rounded-2xl p-5 text-left transition-all group"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-                  👤
-                </div>
+                <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center text-2xl flex-shrink-0">👤</div>
                 <div>
-                  <p className="font-bold text-gray-900 group-hover:text-brand-600">Ik ben een ober</p>
-                  <p className="text-sm text-gray-500">Ontvang tips via jouw persoonlijke QR-code</p>
+                  <p className="font-bold text-gray-900 group-hover:text-brand-600">Ik ben een ZZP'er</p>
+                  <p className="text-sm text-gray-500">Ontvang fooien via jouw persoonlijke QR-code</p>
                 </div>
               </div>
             </button>
@@ -226,12 +255,10 @@ export default function RegistreerPagina() {
               className="w-full bg-white border-2 border-gray-200 hover:border-brand-500 rounded-2xl p-5 text-left transition-all group"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-                  🏪
-                </div>
+                <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center text-2xl flex-shrink-0">🏪</div>
                 <div>
                   <p className="font-bold text-gray-900 group-hover:text-brand-600">Ik ben een horecazaak</p>
-                  <p className="text-sm text-gray-500">Beheer je team en volg alle tips per medewerker</p>
+                  <p className="text-sm text-gray-500">Beheer je team en volg alle fooien per medewerker</p>
                 </div>
               </div>
             </button>
@@ -249,121 +276,185 @@ export default function RegistreerPagina() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">E-mailadres</label>
               <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="email" required value={email}
+                onChange={e => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
-                placeholder="jouw@email.nl"
+                placeholder="jouw@email.com"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Wachtwoord</label>
               <input
-                type="password"
-                required
-                minLength={6}
-                value={wachtwoord}
-                onChange={(e) => setWachtwoord(e.target.value)}
+                type="password" required minLength={6} value={wachtwoord}
+                onChange={e => setWachtwoord(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
                 placeholder="Minimaal 6 tekens"
               />
             </div>
-            {fout && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-                <p className="text-red-600 text-sm font-medium">{fout}</p>
-              </div>
-            )}
-            <button
-              type="submit"
-              disabled={laden}
-              className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all"
-            >
+            {fout && <div className="bg-red-50 border border-red-200 rounded-xl p-3"><p className="text-red-600 text-sm font-medium">{fout}</p></div>}
+            <button type="submit" disabled={laden} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all">
               {laden ? 'Bezig...' : 'Volgende'}
             </button>
-            <button type="button" onClick={() => setStap('keuze')} className="w-full text-center text-sm text-gray-400 hover:text-gray-600">
-              ← Terug
-            </button>
+            <button type="button" onClick={() => setStap('keuze')} className="w-full text-center text-sm text-gray-400 hover:text-gray-600">← Terug</button>
           </form>
         )}
 
-        {/* Stap 3a: Individueel profiel */}
+        {/* Stap 3a: Individueel */}
         {stap === 'profiel' && accountType === 'individueel' && (
-          <form onSubmit={profielOpslaan} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Je naam</label>
-              <input
-                type="text"
-                required
-                value={naam}
-                onChange={(e) => setNaam(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
-                placeholder="Marco de Vries"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Gebruikersnaam</label>
-              <div className="flex items-center border-2 border-gray-200 rounded-xl focus-within:border-brand-500 overflow-hidden">
-                <span className="pl-4 text-gray-400 text-sm whitespace-nowrap">tipdirect.nl/</span>
-                <input
-                  type="text"
-                  required
-                  value={gebruikersnaam}
-                  onChange={(e) => setGebruikersnaam(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
-                  className="flex-1 px-2 py-3 focus:outline-none bg-transparent placeholder:text-gray-400 text-gray-900"
-                  placeholder="marco"
-                />
+          <form onSubmit={profielOpslaan} className="space-y-5">
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Persoonlijke gegevens</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Je naam</label>
+                <input type="text" required value={naam} onChange={e => setNaam(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="Marco de Vries" />
               </div>
-              <p className="text-xs text-gray-400 mt-1">Alleen kleine letters en cijfers</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Gebruikersnaam</label>
+                <div className="flex items-center border-2 border-gray-200 rounded-xl focus-within:border-brand-500 overflow-hidden">
+                  <span className="pl-4 text-gray-400 text-sm whitespace-nowrap">tipdirect.be/</span>
+                  <input type="text" required value={gebruikersnaam}
+                    onChange={e => setGebruikersnaam(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                    className="flex-1 px-2 py-3 focus:outline-none bg-transparent placeholder:text-gray-400 text-gray-900"
+                    placeholder="marco" />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Alleen kleine letters en cijfers</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefoonnummer <span className="text-gray-400 font-normal">(optioneel)</span></label>
+                <input type="tel" value={telefoon} onChange={e => setTelefoon(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="+32 xxx xx xx xx" />
+              </div>
             </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Adresgegevens</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Straat + huisnummer</label>
+                <input type="text" required value={straat} onChange={e => setStraat(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="Kerkstraat 12" />
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Postcode</label>
+                  <input type="text" required value={postcode} onChange={e => setPostcode(e.target.value)}
+                    className="w-full px-3 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                    placeholder="2000" />
+                </div>
+                <div className="col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stad</label>
+                  <input type="text" required value={stad} onChange={e => setStad(e.target.value)}
+                    className="w-full px-3 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                    placeholder="Antwerpen" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Land</label>
+                <select value={land} onChange={e => setLand(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-gray-900 bg-white">
+                  {LANDEN.map(l => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Fiscaal <span className="font-normal text-gray-400">(optioneel)</span></p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">BTW-nummer</label>
+                <input type="text" value={btwNummer} onChange={e => setBtwNummer(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="BE 0xxx.xxx.xxx" />
+              </div>
+            </div>
+
             {fout && <p className="text-red-500 text-sm">{fout}</p>}
-            <button
-              type="submit"
-              disabled={laden}
-              className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all"
-            >
+            <button type="submit" disabled={laden}
+              className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all">
               {laden ? 'Opslaan...' : 'Account aanmaken'}
             </button>
           </form>
         )}
 
-        {/* Stap 3b: Bedrijf profiel */}
+        {/* Stap 3b: Bedrijf */}
         {stap === 'profiel' && accountType === 'bedrijf' && (
-          <form onSubmit={profielOpslaan} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Naam van uw zaak</label>
-              <input
-                type="text"
-                required
-                value={bedrijfsnaam}
-                onChange={(e) => setBedrijfsnaam(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
-                placeholder="Restaurant De Gouden Lepel"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Logo URL <span className="text-gray-400 font-normal">(optioneel)</span></label>
-              <input
-                type="url"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
-                placeholder="https://..."
-              />
-              <p className="text-xs text-gray-400 mt-1">Zichtbaar op de betaalpagina van uw medewerkers</p>
-            </div>
-            {logoUrl && (
-              <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                <img src={logoUrl} alt="Logo preview" className="w-12 h-12 object-contain rounded-lg" />
-                <p className="text-sm text-gray-500">Logo preview</p>
+          <form onSubmit={profielOpslaan} className="space-y-5">
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Bedrijfsgegevens</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Handelsnaam <span className="text-gray-400 font-normal">(naam van uw zaak)</span></label>
+                <input type="text" required value={bedrijfsnaam} onChange={e => setBedrijfsnaam(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="Restaurant De Gouden Lepel" />
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Statutaire naam <span className="text-gray-400 font-normal">(indien afwijkend)</span></label>
+                <input type="text" value={statutaireNaam} onChange={e => setStatutaireNaam(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="Gouden Lepel BV" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefoonnummer</label>
+                <input type="tel" required value={telefoon} onChange={e => setTelefoon(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="+32 xxx xx xx xx" />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Adresgegevens</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Straat + huisnummer</label>
+                <input type="text" required value={straat} onChange={e => setStraat(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="Kerkstraat 12" />
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Postcode</label>
+                  <input type="text" required value={postcode} onChange={e => setPostcode(e.target.value)}
+                    className="w-full px-3 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                    placeholder="2000" />
+                </div>
+                <div className="col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stad</label>
+                  <input type="text" required value={stad} onChange={e => setStad(e.target.value)}
+                    className="w-full px-3 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                    placeholder="Antwerpen" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Land</label>
+                <select value={land} onChange={e => setLand(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-gray-900 bg-white">
+                  {LANDEN.map(l => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Fiscaal & registratie</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">KvK / Ondernemingsnummer</label>
+                <input type="text" required value={kvk} onChange={e => setKvk(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="BE 0xxx.xxx.xxx of KvK 12345678" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">BTW-nummer <span className="text-gray-400 font-normal">(optioneel)</span></label>
+                <input type="text" value={btwNummer} onChange={e => setBtwNummer(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="BE 0xxx.xxx.xxx" />
+              </div>
+            </div>
+
             {fout && <p className="text-red-500 text-sm">{fout}</p>}
-            <button
-              type="submit"
-              disabled={laden}
-              className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all"
-            >
+            <button type="submit" disabled={laden}
+              className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all">
               {laden ? 'Opslaan...' : 'Account aanmaken'}
             </button>
           </form>

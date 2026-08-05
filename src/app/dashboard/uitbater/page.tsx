@@ -27,6 +27,7 @@ export default function UitbaterDashboard() {
   const [medewerkers, setMedewerkers] = useState<MedewerkerStats[]>([])
   const [abonnement, setAbonnement] = useState<AbonnementData | null>(null)
   const [laden, setLaden] = useState(true)
+  const [abonnementLaden, setAbonnementLaden] = useState(false)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -82,6 +83,24 @@ export default function UitbaterDashboard() {
 
     return () => unsubscribe()
   }, [])
+
+  async function abonnementBetalen() {
+    setAbonnementLaden(true)
+    try {
+      const user = auth.currentUser
+      if (!user) return
+      const token = await getIdToken(user)
+      const res = await fetch('/api/betaling/abonnement', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.fout)
+      window.location.href = data.betaalUrl
+    } catch {
+      setAbonnementLaden(false)
+    }
+  }
 
   async function uitloggen() {
     await signOut(auth)
@@ -151,22 +170,27 @@ export default function UitbaterDashboard() {
 
         {/* Abonnement */}
         {abonnement && abonnement.status !== 'actief' && (
-          <div className={`rounded-xl p-4 shadow-sm ${abonnement.status === 'vervallen' ? 'bg-red-50 border border-red-100' : 'bg-white border border-gray-100'}`}>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-semibold text-gray-700">Abonnement</p>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${abonnement.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600'}`}>
-                {abonnement.status === 'pending' ? 'Activering loopt' : 'Vervallen'}
-              </span>
+          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">💳</span>
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">Abonnement activeren</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Betaal het abonnement om fooien te kunnen ontvangen via TipDirect.
+                </p>
+              </div>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
-              <div
-                className="bg-brand-500 h-2 rounded-full transition-all"
-                style={{ width: `${Math.min(100, Math.round((abonnement.voldaan / abonnement.bedrag) * 100))}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500">
-              €{(abonnement.voldaan / 100).toFixed(2).replace('.', ',')} van €{(abonnement.bedrag / 100).toFixed(2).replace('.', ',')} voldaan — eerste fooien gaan naar activering
-            </p>
+            <button
+              onClick={abonnementBetalen}
+              disabled={abonnementLaden}
+              className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl transition-all"
+            >
+              {abonnementLaden
+                ? 'Doorsturen naar betaling...'
+                : `Abonnement betalen — €${(abonnement.bedrag / 100).toFixed(2).replace('.', ',')}`}
+            </button>
           </div>
         )}
         {abonnement && abonnement.status === 'actief' && (

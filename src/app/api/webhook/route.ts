@@ -42,11 +42,45 @@ export async function POST(req: NextRequest) {
       const oberId = betalingData.ober_id
       const bedragCenten = betalingData.bedrag
 
-      // Haal ober op om account_type te bepalen
+      // Directe abonnementsbetaling door uitbater (bedrijf)
+      if (betalingData.betaling_type === 'abonnement') {
+        const oberSnap = await adminDb.collection('obers').doc(oberId).get()
+        const partnerId = oberSnap.data()?.aangebracht_door ?? null
+
+        await adminDb.collection('abonnementen').doc(oberId).set({
+          status: 'actief',
+          bedrag: bedragCenten,
+          voldaan: bedragCenten,
+          start_datum: new Date().toISOString(),
+          actief_sinds: new Date().toISOString(),
+        }, { merge: true })
+
+        await adminDb.collection('obers').doc(oberId).update({
+          abonnement_actief: true,
+        })
+
+        const feeVerdeling = berekenFeeVerdeling(bedragCenten)
+        if (partnerId) {
+          await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
+        }
+
+        await betalingDoc.ref.update({
+          status: nieuweStatus,
+          betaald_op: new Date().toISOString(),
+          bestemming: 'tipdirect',
+          fee_verdeling: feeVerdeling,
+          partner_id: partnerId,
+          abonnement_verwerkt: true,
+          abonnement_nu_actief: true,
+        })
+
+        return NextResponse.json({ ok: true })
+      }
+
+      // Normale fooi — haal ober op om account_type te bepalen
       const oberSnap = await adminDb.collection('obers').doc(oberId).get()
       const oberData = oberSnap.data()
 
-      // Medewerkers horen bij een uitbater: het abonnement loopt op de uitbater's account
       let abonnementOberId = oberId
       let abonnementAccountType = oberData?.account_type ?? 'individueel'
       let partnerId = oberData?.aangebracht_door ?? null
@@ -64,6 +98,20 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Bedrijfsaccounts betalen abonnement apart → fooi gaat altijd naar uitbater
+      if (abonnementAccountType === 'bedrijf') {
+        await betalingDoc.ref.update({
+          status: nieuweStatus,
+          betaald_op: new Date().toISOString(),
+          bestemming: 'klant',
+          netto_klant: bedragCenten - MOLLIE_FEE_CENTEN,
+          mollie_fee: MOLLIE_FEE_CENTEN,
+          abonnement_verwerkt: true,
+        })
+        return NextResponse.json({ ok: true })
+      }
+
+      // Individuele obers: tips financieren het abonnement
       const { bestemming, abonnementNuActief } = await verwerkBetalingVoorAbonnement(
         abonnementOberId,
         bedragCenten,
@@ -72,7 +120,6 @@ export async function POST(req: NextRequest) {
 
       const feeVerdeling = bestemming === 'tipdirect' ? berekenFeeVerdeling(bedragCenten) : null
 
-      // Partner-tegoed bijhouden als de fooi naar TipDirect gaat (abonnementsbijdrage)
       if (bestemming === 'tipdirect' && partnerId && feeVerdeling) {
         await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
       }

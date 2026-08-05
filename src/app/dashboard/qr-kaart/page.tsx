@@ -20,7 +20,12 @@ export default function QrKaartPagina() {
         const data = { id: snap.id, ...snap.data() } as Ober
         setOber(data)
         const url = `https://tipdirect.be/${data.gebruikersnaam}`
-        const dataUrl = await QRCode.toDataURL(url, { width: 400, margin: 1, color: { dark: '#111827', light: '#ffffff' } })
+        const dataUrl = await QRCode.toDataURL(url, {
+          width: 400,
+          margin: 4,
+          errorCorrectionLevel: 'H',
+          color: { dark: '#000000', light: '#ffffff' },
+        })
         setQrDataUrl(dataUrl)
       }
       setLaden(false)

@@ -12,11 +12,21 @@ type Abonnement = {
   naam: string
   email: string
   iban: string | null
+  account_type: string
+  telefoon: string | null
+  adres_straat: string | null
+  adres_postcode: string | null
+  adres_stad: string | null
+  adres_land: string | null
+  btw_nummer: string | null
+  statutaire_naam: string | null
+  kvk: string | null
   status: 'pending' | 'actief' | 'vervallen'
   bedrag: number
   voldaan: number
   start_datum: string
   actief_sinds: string | null
+  omzet_totaal: number
 }
 
 type Config = {
@@ -56,6 +66,16 @@ type PartnerItem = {
 
 type Tab = 'abonnementen' | 'uitbetalingen' | 'partners' | 'instellingen'
 
+function DetailRegel({ label, waarde, mono = false }: { label: string; waarde: string | null | undefined; mono?: boolean }) {
+  if (!waarde) return null
+  return (
+    <div className="flex gap-2 mb-1">
+      <span className="text-xs text-gray-400 flex-shrink-0 w-36">{label}</span>
+      <span className={`text-xs text-gray-900 break-all ${mono ? 'font-mono' : ''}`}>{waarde}</span>
+    </div>
+  )
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('abonnementen')
   const [abonnementen, setAbonnementen] = useState<Abonnement[]>([])
@@ -84,6 +104,8 @@ export default function AdminDashboard() {
   const [partnerMelding, setPartnerMelding] = useState('')
   const [uitbPartnerBezig, setUitbPartnerBezig] = useState(false)
   const [uitbPartnerMelding, setUitbPartnerMelding] = useState('')
+  const [activeerBezig, setActiveerBezig] = useState<string | null>(null)
+  const [openDetail, setOpenDetail] = useState<string | null>(null)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -199,6 +221,60 @@ export default function AdminDashboard() {
       ? 'Geen accounts vervallen.'
       : `${data.aantalVervallen} account(s) op vervallen gezet.`)
     setCronBezig(false)
+  }
+
+  async function activeerAccount(oberId: string) {
+    setActiveerBezig(oberId)
+    const res = await fetch('/api/admin/activeer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ oberId }),
+    })
+    if (res.ok) {
+      setAbonnementen(prev => prev.map(a =>
+        a.id === oberId ? { ...a, status: 'actief', voldaan: a.bedrag, actief_sinds: new Date().toISOString() } : a
+      ))
+    }
+    setActiveerBezig(null)
+  }
+
+  function exporteerCsv() {
+    const ct2eur = (ct: number) => (ct / 100).toFixed(2).replace('.', ',')
+    const headers = [
+      'Naam', 'Statutaire naam', 'E-mail', 'Telefoon',
+      'Straat', 'Postcode', 'Stad', 'Land',
+      'BTW-nummer', 'KvK / Ondernemingsnr.',
+      'Account type', 'IBAN', 'Status', 'Abonnementsbedrag (€)', 'Actief sinds',
+      'Omzet totaal (€)',
+    ]
+    const rijen = abonnementen.map(a => [
+      a.naam,
+      a.statutaire_naam ?? '',
+      a.email,
+      a.telefoon ?? '',
+      a.adres_straat ?? '',
+      a.adres_postcode ?? '',
+      a.adres_stad ?? '',
+      a.adres_land ?? '',
+      a.btw_nummer ?? '',
+      a.kvk ?? '',
+      a.account_type,
+      a.iban ?? '',
+      a.status,
+      ct2eur(a.bedrag),
+      a.actief_sinds ? new Date(a.actief_sinds).toLocaleDateString('nl-NL') : '',
+      ct2eur(a.omzet_totaal ?? 0),
+    ])
+    const csvInhoud = [headers, ...rijen]
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
+      .join('\n')
+    const blob = new Blob(['﻿' + csvInhoud], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `tipdirect-accounts-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   async function configOpslaanHandler(e: React.FormEvent) {
@@ -327,42 +403,125 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="p-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
                 <h2 className="font-bold text-gray-900">Abonnementen</h2>
-                <div className="flex gap-1">
-                  {(['alle', 'actief', 'pending', 'vervallen'] as const).map(f => (
-                    <button key={f} onClick={() => setFilter(f)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all capitalize ${
-                        filter === f ? 'bg-brand-500 text-white' : 'text-gray-500 hover:bg-gray-100'
-                      }`}
-                    >{f}</button>
-                  ))}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex gap-1">
+                    {(['alle', 'actief', 'pending', 'vervallen'] as const).map(f => (
+                      <button key={f} onClick={() => setFilter(f)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all capitalize ${
+                          filter === f ? 'bg-brand-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                      >{f}</button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={exporteerCsv}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-all"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    CSV
+                  </button>
                 </div>
               </div>
               <div className="divide-y divide-gray-50">
                 {gefilterd.length === 0
                   ? <div className="p-8 text-center text-gray-400">Geen resultaten</div>
                   : gefilterd.map(a => (
-                    <div key={a.id} className="px-4 py-3 flex items-center gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{a.naam}</p>
-                        <p className="text-xs text-gray-400 truncate">{a.email}</p>
-                        {a.iban && <p className="text-xs text-gray-400 font-mono mt-0.5">{a.iban}</p>}
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${STATUS_KLEUR[a.status]}`}>{a.status}</span>
-                        {a.status === 'pending' && (
-                          <>
-                            <p className="text-xs text-gray-500 mt-1">€{euro(a.voldaan)} / €{euro(a.bedrag)}</p>
-                            <div className="w-20 bg-gray-200 rounded-full h-1.5 mt-1.5 ml-auto">
-                              <div className="h-1.5 bg-brand-500 rounded-full" style={{ width: `${Math.min(100, (a.voldaan / a.bedrag) * 100)}%` }} />
+                    <div key={a.id}>
+                      {/* Hoofdrij */}
+                      <button
+                        type="button"
+                        onClick={() => setOpenDetail(openDetail === a.id ? null : a.id)}
+                        className="w-full px-4 py-3 flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900 truncate">{a.naam}</p>
+                            {a.account_type === 'bedrijf' && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">Bedrijf</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 truncate">{a.email}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0 space-y-1">
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${STATUS_KLEUR[a.status]}`}>{a.status}</span>
+                          {a.status === 'pending' && (
+                            <>
+                              <p className="text-xs text-gray-500">€{euro(a.voldaan)} / €{euro(a.bedrag)}</p>
+                              <div className="w-20 bg-gray-200 rounded-full h-1.5 ml-auto">
+                                <div className="h-1.5 bg-brand-500 rounded-full" style={{ width: `${Math.min(100, (a.voldaan / a.bedrag) * 100)}%` }} />
+                              </div>
+                            </>
+                          )}
+                          {a.status === 'actief' && a.actief_sinds && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              {new Date(a.actief_sinds).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-gray-300 flex-shrink-0 text-sm">{openDetail === a.id ? '▲' : '▼'}</span>
+                      </button>
+
+                      {/* Detail uitklap */}
+                      {openDetail === a.id && (
+                        <div className="px-4 pb-4 bg-gray-50 border-t border-gray-100">
+                          <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+
+                            {/* Contactgegevens */}
+                            <div>
+                              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Contactgegevens</p>
+                              <DetailRegel label="E-mail" waarde={a.email} />
+                              <DetailRegel label="Telefoon" waarde={a.telefoon} />
+                              <DetailRegel label="IBAN" waarde={a.iban} mono />
                             </div>
-                          </>
-                        )}
-                        {a.status === 'actief' && a.actief_sinds && (
-                          <p className="text-xs text-gray-400 mt-1">
-                            {new Date(a.actief_sinds).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
-                          </p>
-                        )}
-                      </div>
+
+                            {/* Adres */}
+                            <div>
+                              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Adres</p>
+                              <DetailRegel label="Straat" waarde={a.adres_straat} />
+                              <DetailRegel label="Postcode" waarde={a.adres_postcode} />
+                              <DetailRegel label="Stad" waarde={a.adres_stad} />
+                              <DetailRegel label="Land" waarde={a.adres_land} />
+                            </div>
+
+                            {/* Fiscaal */}
+                            <div>
+                              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Fiscaal</p>
+                              <DetailRegel label="BTW-nummer" waarde={a.btw_nummer} mono />
+                              {a.account_type === 'bedrijf' && (
+                                <>
+                                  <DetailRegel label="KvK / Ondernemingsnr." waarde={a.kvk} mono />
+                                  <DetailRegel label="Statutaire naam" waarde={a.statutaire_naam} />
+                                </>
+                              )}
+                            </div>
+
+                            {/* Abonnement */}
+                            <div>
+                              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Abonnement & omzet</p>
+                              <DetailRegel label="Type" waarde={a.account_type} />
+                              <DetailRegel label="Status" waarde={a.status} />
+                              <DetailRegel label="Abonnementsbedrag" waarde={`€${euro(a.bedrag)}`} />
+                              {a.actief_sinds && (
+                                <DetailRegel label="Actief sinds" waarde={new Date(a.actief_sinds).toLocaleDateString('nl-NL')} />
+                              )}
+                              <DetailRegel label="Omzet totaal" waarde={`€${euro(a.omzet_totaal ?? 0)}`} />
+                            </div>
+                          </div>
+
+                          {/* Activeer knop voor pending */}
+                          {a.status === 'pending' && (
+                            <button
+                              onClick={() => activeerAccount(a.id)}
+                              disabled={activeerBezig === a.id}
+                              className="mt-4 px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-all"
+                            >
+                              {activeerBezig === a.id ? 'Bezig...' : 'Account activeren'}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))
                 }

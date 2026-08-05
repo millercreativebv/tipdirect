@@ -15,7 +15,7 @@ const DEFAULT_T: Vertalingen['calculator'] = {
   ontvangtPerMaand: 'U ontvangt elke maand',
   perWerkdag: 'Per werkdag',
   drinkgeld: 'Tip',
-  kosten: 'Kosten (× €0,82)',
+  kosten: 'Kosten (× €0,32)',
   nettoPerDag: 'Netto per dag',
   werkdagenPerMaand: 'werkdagen per maand',
   gestort: 'Gestort op uw IBAN',
@@ -30,18 +30,12 @@ export default function EarningsCalculator({ t = DEFAULT_T }: Props) {
   const [gemiddeldBedrag, setGemiddeldBedrag] = useState(4)
   const [werkdagenPerMaand, setWerkdagenPerMaand] = useState(20)
 
-  const TIPDIRECT_FEE = 0.50
   const MOLLIE_FEE = 0.32
 
   const drinkgeldPerDag = klantenPerDag * gemiddeldBedrag
-  const tipdirectFeePerDag = klantenPerDag * TIPDIRECT_FEE
-  const mollieFeePerDag = klantenPerDag * MOLLIE_FEE
-  const totaleKostenPerDag = tipdirectFeePerDag + mollieFeePerDag
-  const nettoPerDag = drinkgeldPerDag - totaleKostenPerDag
+  const kostenPerDag = klantenPerDag * MOLLIE_FEE
+  const nettoPerDag = drinkgeldPerDag - kostenPerDag
 
-  const totaalDrinkgeld = drinkgeldPerDag * werkdagenPerMaand
-  const totaalTipdirectFee = tipdirectFeePerDag * werkdagenPerMaand
-  const totaalMollieFee = mollieFeePerDag * werkdagenPerMaand
   const netto = nettoPerDag * werkdagenPerMaand
   const perWeek = nettoPerDag * 5
 
@@ -127,7 +121,7 @@ export default function EarningsCalculator({ t = DEFAULT_T }: Props) {
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>{t.kosten}</span>
-                  <span>− € {totaleKostenPerDag.toFixed(2).replace('.', ',')}</span>
+                  <span>− € {kostenPerDag.toFixed(2).replace('.', ',')}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-gray-700 border-t pt-2.5">
                   <span>{t.nettoPerDag}</span>

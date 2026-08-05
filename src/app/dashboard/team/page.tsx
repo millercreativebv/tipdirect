@@ -1,14 +1,31 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { auth, db, type Ober } from '@/lib/firebase'
+import { auth, db, storage, type Ober } from '@/lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import Link from 'next/link'
 import QRCode from 'qrcode'
 
-type FormData = { naam: string; gebruikersnaam: string; fotoUrl: string }
-const LEEG: FormData = { naam: '', gebruikersnaam: '', fotoUrl: '' }
+type FormData = {
+  naam: string
+  gebruikersnaam: string
+  fotoUrl: string
+  voorstelling: string
+  verhaal: string
+  spaardoel_naam: string
+  spaardoel_bedrag: string
+}
+const LEEG: FormData = {
+  naam: '',
+  gebruikersnaam: '',
+  fotoUrl: '',
+  voorstelling: '',
+  verhaal: '',
+  spaardoel_naam: '',
+  spaardoel_bedrag: '',
+}
 
 export default function TeamPagina() {
   const [uitbater, setUitbater] = useState<Ober | null>(null)
@@ -21,6 +38,24 @@ export default function TeamPagina() {
   const [fout, setFout] = useState('')
   const [qrMap, setQrMap] = useState<Record<string, string>>({})
   const [openQr, setOpenQr] = useState<string | null>(null)
+  const [fotoLaden, setFotoLaden] = useState(false)
+
+  async function fotoUploaden(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !uitbater) return
+    setFotoLaden(true)
+    try {
+      const storageRef = ref(storage, `profielfoto/${uitbater.id}/medewerker_${Date.now()}`)
+      const snapshot = await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(snapshot.ref)
+      setForm(f => ({ ...f, fotoUrl: url }))
+    } catch {
+      setFout('Foto uploaden mislukt.')
+    } finally {
+      setFotoLaden(false)
+      e.target.value = ''
+    }
+  }
 
   async function toggleQr(ober: Ober) {
     if (openQr === ober.id) { setOpenQr(null); return }
@@ -68,7 +103,15 @@ export default function TeamPagina() {
 
   function bewerkStart(ober: Ober) {
     setBewerkenId(ober.id)
-    setForm({ naam: ober.naam, gebruikersnaam: ober.gebruikersnaam, fotoUrl: ober.foto_url ?? '' })
+    setForm({
+      naam: ober.naam,
+      gebruikersnaam: ober.gebruikersnaam,
+      fotoUrl: ober.foto_url ?? '',
+      voorstelling: ober.voorstelling ?? '',
+      verhaal: ober.verhaal ?? '',
+      spaardoel_naam: ober.spaardoel_naam ?? '',
+      spaardoel_bedrag: ober.spaardoel_bedrag != null ? String(ober.spaardoel_bedrag) : '',
+    })
     setToonForm(true)
     setFout('')
   }
@@ -104,12 +147,20 @@ export default function TeamPagina() {
       }
     }
 
+    const spaardoelBedrag = form.spaardoel_bedrag
+      ? parseFloat(form.spaardoel_bedrag.replace(',', '.')) || null
+      : null
+
     try {
       if (bewerkenId) {
         await updateDoc(doc(db, 'obers', bewerkenId), {
           naam: form.naam,
           gebruikersnaam: slug,
           foto_url: form.fotoUrl || null,
+          voorstelling: form.voorstelling.trim() || null,
+          verhaal: form.verhaal.trim() || null,
+          spaardoel_naam: form.spaardoel_naam.trim() || null,
+          spaardoel_bedrag: spaardoelBedrag,
         })
       } else {
         const ref = doc(collection(db, 'obers'))
@@ -124,6 +175,10 @@ export default function TeamPagina() {
           account_type: 'medewerker',
           bedrijf_id: uitbater.bedrijf_id,
           aangemaakt_op: new Date().toISOString(),
+          voorstelling: form.voorstelling.trim() || null,
+          verhaal: form.verhaal.trim() || null,
+          spaardoel_naam: form.spaardoel_naam.trim() || null,
+          spaardoel_bedrag: spaardoelBedrag,
         })
       }
 
@@ -212,22 +267,81 @@ export default function TeamPagina() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Foto URL <span className="text-gray-400 font-normal">(optioneel)</span></label>
-                <input
-                  type="url"
-                  value={form.fotoUrl}
-                  onChange={e => setForm(f => ({ ...f, fotoUrl: e.target.value }))}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
-                  placeholder="https://..."
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Foto <span className="text-gray-400 font-normal">(optioneel)</span></label>
+                <div className="flex items-center gap-3">
+                  {form.fotoUrl && (
+                    <img src={form.fotoUrl} alt="Preview" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                  )}
+                  <label className={`flex-1 flex items-center gap-2 px-4 py-3 border-2 rounded-xl transition-all ${fotoLaden ? 'border-brand-300 bg-brand-50 cursor-not-allowed' : 'border-dashed border-gray-200 hover:border-brand-400 cursor-pointer'}`}>
+                    <input type="file" accept="image/*" className="hidden" onChange={fotoUploaden} disabled={fotoLaden} />
+                    <span className="text-sm text-gray-500">
+                      {fotoLaden ? 'Uploaden...' : form.fotoUrl ? 'Andere foto uploaden' : '📷 Foto uploaden'}
+                    </span>
+                  </label>
+                  {form.fotoUrl && !fotoLaden && (
+                    <button type="button" onClick={() => setForm(f => ({ ...f, fotoUrl: '' }))} className="text-xs text-gray-400 hover:text-red-500 flex-shrink-0">
+                      Verwijder
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {form.fotoUrl && (
-                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                  <img src={form.fotoUrl} alt="Preview" className="w-10 h-10 rounded-full object-cover" />
-                  <p className="text-sm text-gray-500">Foto preview</p>
+              {/* Story Behind the Smile */}
+              <div className="border-t border-gray-100 pt-4 mt-2 space-y-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Story Behind the Smile (optioneel)</p>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Korte intro</label>
+                  <input
+                    type="text"
+                    maxLength={100}
+                    value={form.voorstelling}
+                    onChange={e => setForm(f => ({ ...f, voorstelling: e.target.value }))}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                    placeholder="Bijv. Ik werk hier al 5 jaar met veel plezier."
+                  />
+                  <p className="text-xs text-gray-400 text-right mt-0.5">{form.voorstelling.length}/100</p>
                 </div>
-              )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Verhaal / motivatie</label>
+                  <textarea
+                    rows={3}
+                    maxLength={300}
+                    value={form.verhaal}
+                    onChange={e => setForm(f => ({ ...f, verhaal: e.target.value }))}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900 resize-none"
+                    placeholder="Bijv. Ik spaar voor een nieuwe fiets om elke dag naar het werk te komen."
+                  />
+                  <p className="text-xs text-gray-400 text-right mt-0.5">{form.verhaal.length}/300</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Spaardoel</label>
+                    <input
+                      type="text"
+                      maxLength={60}
+                      value={form.spaardoel_naam}
+                      onChange={e => setForm(f => ({ ...f, spaardoel_naam: e.target.value }))}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                      placeholder="Nieuwe fiets"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Doelbedrag (€)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={form.spaardoel_bedrag}
+                      onChange={e => setForm(f => ({ ...f, spaardoel_bedrag: e.target.value }))}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                      placeholder="500"
+                    />
+                  </div>
+                </div>
+              </div>
 
               {fout && <p className="text-red-500 text-sm">{fout}</p>}
 

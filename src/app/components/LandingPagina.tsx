@@ -16,37 +16,107 @@ const TALEN: { code: Taal; label: string; vlag: string }[] = [
 
 export default function LandingPagina() {
   const [taal, setTaal] = useState<Taal>('nl')
+  const [menuOpen, setMenuOpen] = useState(false)
   const t = vertalingen[taal]
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-brand-50 to-white">
 
-      {/* Header */}
-      <header className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
-        <span className="text-xl font-bold text-gray-900">TipDirect</span>
-        <div className="flex items-center gap-3">
-          {/* Taalkiezer */}
-          <div className="flex items-center gap-1 border border-gray-200 rounded-xl px-2 py-1">
-            {TALEN.map(l => (
-              <button
-                key={l.code}
-                onClick={() => setTaal(l.code)}
-                className={`px-2 py-1 rounded-lg text-sm font-medium transition-all ${
-                  taal === l.code
-                    ? 'bg-brand-500 text-white'
-                    : 'text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                {l.vlag} {l.label}
-              </button>
-            ))}
+      {/* Sticky header */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 py-3">
+
+          {/* Desktop: één rij */}
+          <div className="hidden md:flex items-center justify-between gap-4">
+            <a href="#">
+              <Image src="/logotd.png" alt="TipDirect" width={120} height={48} className="h-8 w-auto" />
+            </a>
+            <nav className="flex items-center gap-6 text-sm text-gray-500">
+              <a href="#hoe-het-werkt" className="hover:text-gray-900 transition-colors">{t.nav.hoeHetWerkt}</a>
+              <a href="#abonnementen" className="hover:text-gray-900 transition-colors">{t.nav.abonnementen}</a>
+              <a href="#kosten" className="hover:text-gray-900 transition-colors">{t.nav.kosten}</a>
+              <a href="#faq" className="hover:text-gray-900 transition-colors">{t.nav.faq}</a>
+            </nav>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-0.5 border border-gray-200 rounded-xl px-1.5 py-1">
+                {TALEN.map(l => (
+                  <button key={l.code} onClick={() => setTaal(l.code)}
+                    className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all ${taal === l.code ? 'bg-brand-500 text-white' : 'text-gray-500 hover:text-gray-800'}`}>
+                    {l.vlag} {l.label}
+                  </button>
+                ))}
+              </div>
+              <Link href="/inloggen" className="text-sm border-2 border-gray-200 hover:border-brand-500 hover:text-brand-600 text-gray-600 font-semibold px-4 py-2 rounded-xl transition-all">
+                {t.nav.inloggen}
+              </Link>
+              <Link href="/registreer" className="text-sm bg-brand-500 hover:bg-brand-600 text-white font-semibold px-4 py-2 rounded-xl transition-all">
+                {t.nav.aanmelden}
+              </Link>
+            </div>
           </div>
-          <Link href="/inloggen" className="text-sm text-gray-500 hover:text-gray-800">
-            {t.nav.inloggen}
-          </Link>
-          <Link href="/registreer" className="text-sm bg-brand-500 hover:bg-brand-600 text-white font-semibold px-4 py-2 rounded-xl transition-all">
-            {t.nav.aanmelden}
-          </Link>
+
+          {/* Mobiel: logo links, knoppen midden, hamburger rechts */}
+          <div className="flex md:hidden items-center justify-between gap-2">
+            <a href="#" className="flex-shrink-0">
+              <Image src="/logotd.png" alt="TipDirect" width={100} height={40} className="h-7 w-auto" />
+            </a>
+            <div className="flex items-center gap-2">
+              <Link href="/inloggen" className="text-xs border-2 border-gray-200 hover:border-brand-500 hover:text-brand-600 text-gray-600 font-semibold px-3 py-1.5 rounded-xl transition-all">
+                {t.nav.inloggen}
+              </Link>
+              <Link href="/registreer" className="text-xs bg-brand-500 hover:bg-brand-600 text-white font-semibold px-3 py-1.5 rounded-xl transition-all">
+                {t.nav.aanmelden}
+              </Link>
+            </div>
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              className="flex-shrink-0 p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+              aria-label="Menu"
+            >
+              {menuOpen ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {/* Mobiel menu dropdown */}
+          {menuOpen && (
+            <div className="md:hidden pt-3 pb-2 border-t border-gray-100 mt-3 space-y-3">
+              <nav className="flex flex-col gap-1">
+                {[
+                  { href: '#hoe-het-werkt', label: t.nav.hoeHetWerkt },
+                  { href: '#abonnementen', label: t.nav.abonnementen },
+                  { href: '#kosten', label: t.nav.kosten },
+                  { href: '#faq', label: t.nav.faq },
+                ].map(item => (
+                  <a key={item.href} href={item.href}
+                    onClick={() => setMenuOpen(false)}
+                    className="text-sm text-gray-600 hover:text-gray-900 py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    {item.label}
+                  </a>
+                ))}
+              </nav>
+              <div className="pt-2 border-t border-gray-100">
+                <p className="text-xs text-gray-400 mb-2 px-2">Taal</p>
+                <div className="flex gap-1 flex-wrap px-1">
+                  {TALEN.map(l => (
+                    <button key={l.code}
+                      onClick={() => { setTaal(l.code); setMenuOpen(false) }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${taal === l.code ? 'bg-brand-500 text-white' : 'border border-gray-200 text-gray-600 hover:border-brand-400'}`}>
+                      {l.vlag} {l.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </header>
 
@@ -70,7 +140,7 @@ export default function LandingPagina() {
           </div>
           <div className="flex-shrink-0 w-full sm:w-auto">
             <Image
-              src="/foto.jpeg"
+              src="/foto.jpg"
               alt="Ober met TipDirect QR-code"
               width={420}
               height={560}
@@ -81,7 +151,7 @@ export default function LandingPagina() {
       </main>
 
       {/* Hoe het werkt */}
-      <section className="max-w-5xl mx-auto px-4 pb-24">
+      <section id="hoe-het-werkt" className="max-w-5xl mx-auto px-4 pb-24">
         <h2 className="text-2xl font-bold text-gray-900 text-center mb-10">{t.hoeHetWerkt.titel}</h2>
         <div className="grid sm:grid-cols-3 gap-6">
           {[
@@ -104,16 +174,90 @@ export default function LandingPagina() {
         </div>
       </section>
 
+      {/* Abonnementen */}
+      <section id="abonnementen" className="max-w-5xl mx-auto px-4 pb-24">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">{t.prijzen.titel}</h2>
+          <p className="text-gray-500 max-w-xl mx-auto">{t.prijzen.subtitel}</p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
+
+          {/* Personal */}
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-7 flex flex-col">
+            <div className="mb-6">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{t.prijzen.personal.naam}</p>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">{t.prijzen.personal.doelgroep}</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">{t.prijzen.personal.beschrijving}</p>
+            </div>
+            <div className="mb-6">
+              <span className="text-4xl font-bold text-gray-900">{t.prijzen.personal.prijs}</span>
+              <span className="text-sm text-gray-400 ml-2">{t.prijzen.personal.periode}</span>
+            </div>
+            <ul className="space-y-2.5 mb-8 flex-1">
+              {t.prijzen.personal.features.map((f, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                  <span className="text-brand-500 font-bold mt-0.5 flex-shrink-0">✓</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/registreer"
+              className="block w-full text-center py-3 border-2 border-brand-500 text-brand-500 hover:bg-brand-50 font-bold rounded-xl transition-all"
+            >
+              {t.prijzen.personal.cta}
+            </Link>
+            <p className="text-xs text-gray-400 text-center mt-3">{t.prijzen.personal.nota}</p>
+          </div>
+
+          {/* Business */}
+          <div className="bg-brand-500 rounded-2xl p-7 flex flex-col relative overflow-hidden">
+            <div className="absolute top-4 right-4">
+              <span className="bg-white text-brand-500 text-xs font-bold px-3 py-1 rounded-full">
+                {t.prijzen.business.badge}
+              </span>
+            </div>
+            <div className="mb-6">
+              <p className="text-xs font-bold text-brand-200 uppercase tracking-widest mb-1">{t.prijzen.business.naam}</p>
+              <h3 className="text-lg font-bold text-white mb-1">{t.prijzen.business.doelgroep}</h3>
+              <p className="text-sm text-brand-100 leading-relaxed">{t.prijzen.business.beschrijving}</p>
+            </div>
+            <div className="mb-6">
+              <span className="text-4xl font-bold text-white">{t.prijzen.business.prijs}</span>
+              <span className="text-sm text-brand-200 ml-2">{t.prijzen.business.periode}</span>
+            </div>
+            <ul className="space-y-2.5 mb-8 flex-1">
+              {t.prijzen.business.features.map((f, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-white">
+                  <span className="text-brand-200 font-bold mt-0.5 flex-shrink-0">✓</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/registreer"
+              className="block w-full text-center py-3 bg-white text-brand-500 hover:bg-brand-50 font-bold rounded-xl transition-all"
+            >
+              {t.prijzen.business.cta}
+            </Link>
+            {t.prijzen.business.nota && (
+              <p className="text-xs text-brand-200 text-center mt-3">{t.prijzen.business.nota}</p>
+            )}
+          </div>
+
+        </div>
+      </section>
+
       {/* Earnings calculator */}
       <EarningsCalculator t={t.calculator} />
 
       {/* Kosten */}
-      <section className="max-w-5xl mx-auto px-4 pb-24 text-center">
+      <section id="kosten" className="max-w-5xl mx-auto px-4 pb-24 text-center">
         <div className="bg-brand-50 border border-brand-100 rounded-2xl p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">{t.kosten.titel}</h2>
           <p className="text-gray-500 mb-6">{t.kosten.beschrijving}</p>
           <div className="inline-block bg-white rounded-xl px-8 py-4 shadow-sm">
-            <p className="text-3xl font-bold text-brand-500">€0,50</p>
+            <p className="text-3xl font-bold text-brand-500">€0,32</p>
             <p className="text-sm text-gray-500 mt-1">{t.kosten.label}</p>
           </div>
           <p className="text-sm text-gray-400 mt-4">{t.kosten.voorbeeld}</p>
@@ -121,11 +265,49 @@ export default function LandingPagina() {
       </section>
 
       {/* FAQ */}
-      <FAQ t={t.faq} />
+      <div id="faq">
+        <FAQ t={t.faq} />
+      </div>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 py-8 text-center text-sm text-gray-400">
-        <p>© 2026 TipDirect · {t.footer}</p>
+      <footer className="bg-[#0f2744] text-white mt-8">
+        <div className="max-w-5xl mx-auto px-4 py-10">
+          <div className="flex flex-col sm:flex-row gap-8 justify-between">
+            <div>
+              <p className="font-bold text-white mb-1">TipDirect</p>
+              <p className="text-blue-200 text-sm">{t.footer}</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-8 text-sm text-blue-200">
+              <div>
+                <p className="font-semibold text-white mb-1">Software Development & IT</p>
+                <p>Deursenseweg 12</p>
+                <p>5351 NN Berghem</p>
+              </div>
+              <div>
+                <p className="font-semibold text-white mb-1">Office & Sales</p>
+                <p>Prinses Marijkeweg 2-L</p>
+                <p>4191 XL Geldermalsen</p>
+              </div>
+              <div>
+                <p className="font-semibold text-white mb-1">Partner België</p>
+                <p>Strictly Hospitality</p>
+                <p>Halfweg 35</p>
+                <p>2450 Meerhout</p>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-blue-800 mt-8 pt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-blue-400">
+            <p>
+              © 2026 TipDirect.be — een product van Miller Creative BV
+              <span className="mx-2">·</span>
+              <a href="mailto:info@millercreative.nl" className="hover:text-white transition-colors">info@millercreative.nl</a>
+            </p>
+            <div className="flex gap-4">
+              <a href="/algemene-voorwaarden" className="hover:text-white transition-colors">Algemene Voorwaarden</a>
+              <a href="/privacy" className="hover:text-white transition-colors">Privacybeleid</a>
+            </div>
+          </div>
+        </div>
       </footer>
 
     </div>

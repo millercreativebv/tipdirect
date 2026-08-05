@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
+import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -15,6 +16,7 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+export const storage = getStorage(app)
 
 export type Ober = {
   id: string
@@ -27,13 +29,23 @@ export type Ober = {
   actief: boolean
   account_type: 'individueel' | 'bedrijf' | 'medewerker'
   bedrijf_id: string | null
-  aangebracht_door: string | null  // partner uid die dit account heeft aangebracht
+  aangebracht_door: string | null
   aangemaakt_op: string
+  // Contactgegevens
+  telefoon?: string | null
+  adres_straat?: string | null
+  adres_postcode?: string | null
+  adres_stad?: string | null
+  adres_land?: string | null
+  // Fiscaal
+  btw_nummer?: string | null
+  // Profiel
   voorstelling?: string | null
   verhaal?: string | null
   spaardoel_naam?: string | null
   spaardoel_bedrag?: number | null
   admin?: boolean
+  abonnement_actief?: boolean
 }
 
 export type Partner = {
@@ -81,9 +93,19 @@ export type Betaling = {
 
 export type Bedrijf = {
   id: string
-  naam: string
+  naam: string               // handelsnaam
+  statutaire_naam: string | null
   email: string
-  kvk: string | null
+  telefoon: string | null
+  // Adres
+  adres_straat: string | null
+  adres_postcode: string | null
+  adres_stad: string | null
+  adres_land: string | null
+  // Fiscaal
+  kvk: string | null         // KvK (NL) of ondernemingsnummer (BE)
+  btw_nummer: string | null
+  // Media
   logo_url?: string | null
   aangemaakt_op: string
 }
