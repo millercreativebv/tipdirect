@@ -27,6 +27,9 @@ export default function RegistreerPagina() {
   // Individueel
   const [naam, setNaam] = useState('')
   const [gebruikersnaam, setGebruikersnaam] = useState('')
+  const [iban, setIban] = useState('')
+  const [ibanNaam, setIbanNaam] = useState('')
+  const [sepaAkkoord, setSepaAkkoord] = useState(false)
 
   // Bedrijf
   const [bedrijfsnaam, setBedrijfsnaam] = useState('')
@@ -104,6 +107,25 @@ export default function RegistreerPagina() {
       return
     }
 
+    if (accountType === 'individueel') {
+      const ibanClean = iban.replace(/\s/g, '').toUpperCase()
+      if (ibanClean.length < 10) {
+        setFout('Vul een geldig IBAN-nummer in.')
+        setLaden(false)
+        return
+      }
+      if (!ibanNaam.trim()) {
+        setFout('Vul de naam van de rekeninghouder in.')
+        setLaden(false)
+        return
+      }
+      if (!sepaAkkoord) {
+        setFout('Geef toestemming voor automatische incasso om door te gaan.')
+        setLaden(false)
+        return
+      }
+    }
+
     const q = query(collection(db, 'obers'), where('gebruikersnaam', '==', slugGebruikersnaam))
     const check = await getDocs(q)
     if (!check.empty) {
@@ -155,8 +177,8 @@ export default function RegistreerPagina() {
           naam,
           gebruikersnaam: slugGebruikersnaam,
           foto_url: null,
-          iban: null,
-          iban_naam: null,
+          iban: iban.replace(/\s/g, '').toUpperCase(),
+          iban_naam: ibanNaam.trim(),
           actief: true,
           account_type: 'individueel',
           bedrijf_id: null,
@@ -168,6 +190,8 @@ export default function RegistreerPagina() {
           btw_nummer: btwNummer || null,
           aangebracht_door: partnerId,
           aangemaakt_op: new Date().toISOString(),
+          sepa_akkoord: true,
+          sepa_akkoord_datum: new Date().toISOString(),
         })
       }
 
@@ -453,6 +477,36 @@ export default function RegistreerPagina() {
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
                   placeholder="BE 0xxx.xxx.xxx" />
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Bankrekening & incassomachtiging</p>
+              <div className="bg-brand-50 border border-brand-100 rounded-xl p-4">
+                <p className="text-xs text-brand-700 leading-relaxed">
+                  Je abonnement (€25) wordt voldaan via de fooien die je ontvangt — <strong>je betaalt niets vooraf</strong>. Heb je na 30 dagen het abonnement nog niet voldaan via fooien, dan incasseren wij het resterende bedrag automatisch via SEPA-incasso.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">IBAN-nummer</label>
+                <input type="text" required value={iban}
+                  onChange={e => setIban(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900 font-mono"
+                  placeholder="BE00 0000 0000 0000" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Naam rekeninghouder</label>
+                <input type="text" required value={ibanNaam}
+                  onChange={e => setIbanNaam(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
+                  placeholder="Marco de Vries" />
+              </div>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" checked={sepaAkkoord} onChange={e => setSepaAkkoord(e.target.checked)}
+                  className="mt-1 w-4 h-4 accent-brand-500 flex-shrink-0" />
+                <span className="text-xs text-gray-600 leading-relaxed">
+                  Ik geef TipDirect toestemming om, indien het abonnementsbedrag na 30 dagen niet is voldaan via ontvangen fooien, het resterende bedrag automatisch via SEPA-incasso te innen van bovenstaand rekeningnummer. Ik kan deze machtiging intrekken via mijn dashboard.
+                </span>
+              </label>
             </div>
 
             {fout && <p className="text-red-500 text-sm">{fout}</p>}

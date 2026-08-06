@@ -6,16 +6,26 @@ export const vertalingen = {
     hero: {
       heading: 'Ontvang een fooi',
       headingAccent: 'met een klik',
-      beschrijving: 'Maak een persoonlijke of zakelijk account aan. Gasten scannen je QR code, kiezen een bedrag dat ze als fooi willen geven en betalen direct via WERO of Bancontact. Afhankelijk van het account wordt het geld op de rekening van de individuele ober of naar de zaak gestort. Zakelijke codes kunnen worden onderverdeeld in persoonlijke codes van medewerkers zodat je precies ziet wie er een tip heeft ontvangen en voor welk bedrag.',
-      cta: 'Gratis aanmelden',
-      tagline: 'Geen app nodig · Werkt direct',
+      beschrijving: 'Jouw persoonlijke QR-code. Gasten scannen, kiezen een bedrag en betalen direct via Bancontact, WERO of Apple Pay. Het geld staat op jouw rekening — automatisch, zonder gedoe.',
+      cta: 'Risicoloos starten',
+      tagline: 'Geen voorschot · Geen app nodig · Werkt direct',
+    },
+    risicoloos: {
+      titel: 'Geen risico. Geen voorschot.',
+      beschrijving: 'Bij een Personal account betaal je het abonnement via je eigen fooien. Geen factuur vooraf. Zodra je genoeg tips hebt ontvangen, staat je account automatisch op actief en gaan alle volgende fooien rechtstreeks naar jou.',
+      stappen: [
+        { label: 'Start gratis', tekst: 'Maak een account aan. Je betaalt niets vooraf.' },
+        { label: 'Ontvang tips', tekst: 'De eerste fooien gaan naar je abonnement (€25). Zodra dat bedrag bereikt is, is je account volledig actief.' },
+        { label: 'Alles voor jou', tekst: 'Vanaf dan gaan alle tips, min alleen de Mollie-transactiekost van €0,32, direct op je rekening.' },
+      ],
+      veiligheidsnet: 'Heb je na 30 dagen je abonnement nog niet volledig voldaan via fooien? Dan schrijven we het resterende bedrag automatisch af van het IBAN dat je bij aanmelding hebt opgegeven.',
     },
     hoeHetWerkt: {
       titel: 'Hoe het werkt',
       stappen: [
-        { titel: 'Meld je aan', tekst: 'Maak een gratis account en kies je persoonlijke link.' },
+        { titel: 'Meld je aan', tekst: 'Maak een account aan, koppel je Mollie en kies je persoonlijke link.' },
         { titel: 'Download je QR', tekst: 'Print je QR-code of zet hem op je telefoon. Gasten scannen hem.' },
-        { titel: 'Ontvang een tip', tekst: 'Het geld wordt automatisch uitbetaald op jouw bankrekening.' },
+        { titel: 'Ontvang een tip', tekst: 'Het geld wordt automatisch uitbetaald op jouw bankrekening via Mollie.' },
       ],
     },
     prijzen: {
@@ -23,19 +33,20 @@ export const vertalingen = {
       subtitel: 'Eén jaarlijks tarief, geen verborgen kosten. Enkel de Mollie transactiekosten van €0,32 per ontvangen tip.',
       personal: {
         naam: 'Personal',
-        doelgroep: 'Voor de individuele ZZP\'ers',
-        beschrijving: 'Direct tips ontvangen zonder maandelijkse kosten. Ideaal voor zelfstandige obers, barista\'s, chauffeurs en andere dienstverleners.',
+        doelgroep: 'Voor zelfstandige professionals',
+        beschrijving: 'Betaal je abonnement via de tips die je ontvangt. Geen factuur vooraf, geen risico.',
         prijs: '€25',
         periode: 'per jaar, incl. BTW',
-        badge: '',
+        badge: 'Geen voorschot',
         features: [
+          'Geen betaling vooraf — je betaalt via je fooien',
           'Persoonlijke betaalpagina op tipdirect.be/jouwnaam',
           '2 QR-passen inbegrepen',
-          'Direct uitbetaling op uw IBAN',
+          'Automatische uitbetaling via Mollie',
           'WERO, Apple Pay & bankkaart',
           'Geen extra servicekosten',
         ],
-        cta: 'Aanmelden',
+        cta: 'Gratis starten',
         nota: 'Extra passen kunnen worden bijbesteld.',
       },
       business: {
@@ -82,6 +93,7 @@ export const vertalingen = {
     faq: {
       titel: 'Veelgestelde vragen',
       vragen: [
+        { vraag: 'Moet ik direct betalen bij aanmelding?', antwoord: 'Nee. Als individuele gebruiker betaal je niets vooraf. Het abonnement (€25) wordt automatisch voldaan via de fooien die je ontvangt — de eerste tips gaan naar je abonnement totdat het bedrag bereikt is. Pas dan gaan alle volgende tips volledig naar jou. Heb je na 30 dagen het bedrag nog niet bereikt? Dan incasseren we het resterende bedrag automatisch via SEPA-incasso van het IBAN dat je bij aanmelding hebt opgegeven.' },
         { vraag: 'Voor welke beroepen is TipDirect geschikt?', antwoord: 'TipDirect is geschikt voor iedereen in de horeca en dienstensector die tips ontvangt: obers, barmannen, barista\'s, sommeliers, roomservice-medewerkers en andere horecaprofessionals. Zowel individueel als via een zakelijk account voor het volledige team.' },
         { vraag: 'Moet de klant een app installeren?', antwoord: 'Nee. De klant scant de QR-code met de gewone camera van zijn telefoon en betaalt in één tik via WERO, Apple Pay of bankkaart. Geen app, geen account, geen gedoe.' },
         { vraag: 'Hoe ontvang ik het geld?', antwoord: 'De tip wordt rechtstreeks op uw bankrekening gestort via Mollie. Uitbetalingen gebeuren automatisch door Mollie. U hoeft hier zelf niets voor te doen.' },
@@ -100,6 +112,16 @@ export const vertalingen = {
       beschrijving: 'Create a personal or business QR code. Guests scan, choose an amount and pay directly via Apple Pay or card. Depending on the account, the money goes to the individual staff member or the business. Business codes can be divided into personal codes per employee so you can see exactly who received tips and for how much.',
       cta: 'Sign up for free',
       tagline: 'No app needed · Works instantly',
+    },
+    risicoloos: {
+      titel: 'No risk. No upfront cost.',
+      beschrijving: 'With a Personal account you pay your subscription through the tips you receive. No invoice upfront, no risk. Once you\'ve received enough tips, your account activates automatically.',
+      stappen: [
+        { label: 'Start free', tekst: 'Create an account. You pay nothing upfront.' },
+        { label: 'Receive tips', tekst: 'Your first tips go toward your subscription (€25). Once that amount is reached, your account is fully active.' },
+        { label: 'Everything for you', tekst: 'From then on, all tips — minus only the €0.32 Mollie transaction fee — go straight to your account.' },
+      ],
+      veiligheidsnet: 'Haven\'t fully paid your subscription through tips after 30 days? We\'ll automatically debit the remaining amount from the IBAN you provided at signup.',
     },
     hoeHetWerkt: {
       titel: 'How it works',
@@ -193,6 +215,16 @@ export const vertalingen = {
       cta: 'S\'inscrire gratuitement',
       tagline: 'Aucune application requise · Fonctionne immédiatement',
     },
+    risicoloos: {
+      titel: 'Aucun risque. Aucune avance.',
+      beschrijving: 'Avec un compte Personal, vous payez votre abonnement via vos propres pourboires. Aucune facture à l\'avance, aucun risque. Une fois le montant atteint, votre compte est activé automatiquement.',
+      stappen: [
+        { label: 'Démarrez gratuitement', tekst: 'Créez un compte. Vous ne payez rien à l\'avance.' },
+        { label: 'Recevez des pourboires', tekst: 'Vos premiers pourboires vont vers votre abonnement (€25). Une fois ce montant atteint, votre compte est pleinement actif.' },
+        { label: 'Tout pour vous', tekst: 'Ensuite, tous les pourboires — moins les €0,32 de frais Mollie — sont versés directement sur votre compte.' },
+      ],
+      veiligheidsnet: 'Après 30 jours, si votre abonnement n\'est pas entièrement réglé via les pourboires, nous prélevons automatiquement le solde restant sur l\'IBAN fourni lors de votre inscription.',
+    },
     hoeHetWerkt: {
       titel: 'Comment ça fonctionne',
       stappen: [
@@ -284,6 +316,16 @@ export const vertalingen = {
       beschrijving: 'Erstellen Sie einen persönlichen oder geschäftlichen QR-Code. Gäste scannen, wählen einen Betrag und zahlen direkt per Apple Pay oder Karte. Je nach Kontotyp wird das Geld auf das Konto des einzelnen Mitarbeiters oder des Betriebs überwiesen. Geschäftliche Codes können in persönliche Codes pro Mitarbeiter unterteilt werden, sodass Sie genau sehen, wer wie viel Trinkgeld erhalten hat.',
       cta: 'Kostenlos registrieren',
       tagline: 'Keine App nötig · Funktioniert sofort',
+    },
+    risicoloos: {
+      titel: 'Kein Risiko. Keine Vorauszahlung.',
+      beschrijving: 'Mit einem Personal-Konto bezahlen Sie Ihr Abonnement über Ihre eigenen Trinkgelder. Keine Rechnung im Voraus, kein Risiko. Sobald der Betrag erreicht ist, wird Ihr Konto automatisch aktiviert.',
+      stappen: [
+        { label: 'Kostenlos starten', tekst: 'Erstellen Sie ein Konto. Sie zahlen nichts im Voraus.' },
+        { label: 'Trinkgeld erhalten', tekst: 'Ihre ersten Trinkgelder gehen auf Ihr Abonnement (€25). Sobald dieser Betrag erreicht ist, ist Ihr Konto vollständig aktiv.' },
+        { label: 'Alles für Sie', tekst: 'Ab dann gehen alle Trinkgelder — abzüglich nur der €0,32 Mollie-Transaktionsgebühr — direkt auf Ihr Konto.' },
+      ],
+      veiligheidsnet: 'Haben Sie nach 30 Tagen Ihr Abonnement nicht vollständig über Trinkgelder bezahlt? Wir buchen den Restbetrag automatisch von der bei der Anmeldung angegebenen IBAN ab.',
     },
     hoeHetWerkt: {
       titel: 'So funktioniert es',

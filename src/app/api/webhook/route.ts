@@ -113,6 +113,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    // ─── SEPA incasso na 30-dagenregel (individueel) ─────────────────────────
+    if (betalingData.betaling_type === 'abonnement_incasso') {
+      const resterend = bedragCenten
+
+      await adminDb.collection('abonnementen').doc(oberId).set({
+        status: 'actief',
+        voldaan: resterend,
+        actief_sinds: new Date().toISOString(),
+      }, { merge: true })
+
+      await adminDb.collection('obers').doc(oberId).update({ abonnement_actief: true, actief: true })
+
+      await betalingDoc.ref.update({
+        status: nieuweStatus,
+        betaald_op: new Date().toISOString(),
+        bestemming: 'tipdirect',
+        abonnement_verwerkt: true,
+        abonnement_nu_actief: true,
+      })
+
+      return NextResponse.json({ ok: true })
+    }
+
     // ─── Fooi via Mollie Connect ──────────────────────────────────────────────
     if (betalingData.via_mollie_connect) {
       const applicationFeeCenten = (betalingData.application_fee_centen as number | null) ?? 0

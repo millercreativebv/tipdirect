@@ -150,6 +150,32 @@ export default function LandingPagina() {
         </div>
       </main>
 
+      {/* Risicoloos instappen */}
+      <section className="max-w-5xl mx-auto px-4 pb-24">
+        <div className="bg-gradient-to-br from-brand-500 to-brand-700 rounded-3xl p-8 md:p-12 text-white">
+          <div className="max-w-2xl mx-auto text-center mb-10">
+            <span className="inline-block bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full mb-4 tracking-wide uppercase">Personal account</span>
+            <h2 className="text-2xl md:text-3xl font-bold mb-4">{t.risicoloos.titel}</h2>
+            <p className="text-brand-100 leading-relaxed">{t.risicoloos.beschrijving}</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4 mb-8">
+            {t.risicoloos.stappen.map((stap, i) => (
+              <div key={i} className="bg-white/10 rounded-2xl p-5 backdrop-blur-sm">
+                <div className="w-8 h-8 rounded-full bg-white text-brand-600 font-bold text-sm flex items-center justify-center mb-3">{i + 1}</div>
+                <p className="font-bold text-white mb-1">{stap.label}</p>
+                <p className="text-sm text-brand-100">{stap.tekst}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-white/10 rounded-2xl p-5 border border-white/20 flex items-start gap-3">
+            <span className="text-xl flex-shrink-0">🛡️</span>
+            <p className="text-sm text-brand-100 leading-relaxed">{t.risicoloos.veiligheidsnet}</p>
+          </div>
+        </div>
+      </section>
+
       {/* Hoe het werkt */}
       <section id="hoe-het-werkt" className="max-w-5xl mx-auto px-4 pb-24">
         <h2 className="text-2xl font-bold text-gray-900 text-center mb-10">{t.hoeHetWerkt.titel}</h2>
@@ -183,7 +209,14 @@ export default function LandingPagina() {
         <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
 
           {/* Personal */}
-          <div className="bg-white border-2 border-gray-200 rounded-2xl p-7 flex flex-col">
+          <div className="bg-white border-2 border-gray-200 rounded-2xl p-7 flex flex-col relative">
+            {t.prijzen.personal.badge && (
+              <div className="absolute top-4 right-4">
+                <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full">
+                  {t.prijzen.personal.badge}
+                </span>
+              </div>
+            )}
             <div className="mb-6">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{t.prijzen.personal.naam}</p>
               <h3 className="text-lg font-bold text-gray-900 mb-1">{t.prijzen.personal.doelgroep}</h3>

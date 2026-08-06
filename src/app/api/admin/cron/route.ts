@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
   // Vercel Cron stuurt Authorization: Bearer <CRON_SECRET>
   const authHeader = req.headers.get('authorization')
   if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
-    const vervallen = await check30DagenRegel()
-    return NextResponse.json({ ok: true, vervallen })
+    const resultaat = await check30DagenRegel()
+    return NextResponse.json({ ok: true, ...resultaat })
   }
 
   // Anders: alleen admins
@@ -24,6 +24,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ fout: 'Geen toegang' }, { status: 403 })
   }
 
-  const vervallen = await check30DagenRegel()
-  return NextResponse.json({ ok: true, vervallen, aantalVervallen: vervallen.length })
+  const resultaat = await check30DagenRegel()
+  return NextResponse.json({
+    ok: true,
+    incasso_gestart: resultaat.incasso_gestart,
+    vervallen: resultaat.vervallen,
+    aantalVervallen: resultaat.vervallen.length,
+    aantalIncasso: resultaat.incasso_gestart.length,
+  })
 }
