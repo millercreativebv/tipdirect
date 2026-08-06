@@ -228,6 +228,27 @@ export default function UitbaterDashboard() {
           </div>
         )}
 
+        {/* Mollie koppelen — verplicht voor medewerker-tips */}
+        {uitbater && !uitbater.mollie_connected && abonnement?.status === 'actief' && (
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-5">
+            <div className="flex items-start gap-3 mb-4">
+              <span className="text-2xl flex-shrink-0">⚠️</span>
+              <div>
+                <p className="font-bold text-amber-900">Koppel Mollie om fooien te ontvangen</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  Zonder Mollie-koppeling kunnen medewerkers geen fooien ontvangen. Koppel je Mollie-account zodat fooien direct op jouw rekening binnenkomen.
+                </p>
+              </div>
+            </div>
+            <a
+              href="/dashboard/profiel"
+              className="block w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition-all text-center"
+            >
+              Mollie koppelen →
+            </a>
+          </div>
+        )}
+
         {/* Snelkoppelingen */}
         <div className="grid grid-cols-2 gap-3">
           <Link

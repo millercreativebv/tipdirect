@@ -29,9 +29,12 @@ export async function POST(req: NextRequest) {
     const betalingData = betalingDoc.data()
 
     // Verifieer betaling bij Mollie — gebruik connected account token bij Mollie Connect
+    // mollie_ober_id is de uitbater bij medewerker-tips, anders de ober zelf
+    const mollieOberId = betalingData.mollie_ober_id ?? betalingData.ober_id
+
     let mollieBetaling: Payment
     if (betalingData.via_mollie_connect) {
-      const oberSnap = await adminDb.collection('obers').doc(betalingData.ober_id).get()
+      const oberSnap = await adminDb.collection('obers').doc(mollieOberId).get()
       const oberData = oberSnap.data()
 
       if (!oberData?.mollie_access_token) {
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest) {
             mollie_token_expires_at: oberData.mollie_token_expires_at,
           })
           if (tokenResult.vernieuwd && tokenResult.nieuweData) {
-            await adminDb.collection('obers').doc(betalingData.ober_id).update(tokenResult.nieuweData)
+            await adminDb.collection('obers').doc(mollieOberId).update(tokenResult.nieuweData)
           }
           const verbonden = verbondenMollieClient(tokenResult.accessToken)
           mollieBetaling = await verbonden.payments.get(mollieId)

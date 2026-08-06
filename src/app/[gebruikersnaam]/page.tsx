@@ -60,8 +60,24 @@ export default async function BetaalPagina({ params }: { params: Promise<{ gebru
       bedrijf = { id: bedrijfSnap.id, naam: b.naam as string, logo_url: (b.logo_url as string | null) ?? null }
     }
 
-    if (!uitbaterSnap.empty && !uitbaterSnap.docs[0].data().abonnement_actief) {
-      return notFound()
+    if (!uitbaterSnap.empty) {
+      const uitbaterData = uitbaterSnap.docs[0].data()
+      if (!uitbaterData.abonnement_actief) return notFound()
+      if (!uitbaterData.mollie_connected) {
+        return (
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+            <div className="text-center max-w-xs">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🔗</span>
+              </div>
+              <h1 className="text-lg font-bold text-gray-900 mb-2">Nog niet beschikbaar</h1>
+              <p className="text-sm text-gray-500">
+                {ober.naam} kan op dit moment geen fooien ontvangen. Probeer het later opnieuw.
+              </p>
+            </div>
+          </div>
+        )
+      }
     }
   }
 

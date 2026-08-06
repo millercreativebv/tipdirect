@@ -20,14 +20,30 @@ export async function POST(req: NextRequest) {
     const gebruikersnaam = oberData.gebruikersnaam as string
     const naam = oberData.naam as string
 
-    // Haal abonnement status op
-    const abSnap = await adminDb.collection('abonnementen').doc(oberId).get()
+    // Voor medewerkers: gebruik de Mollie-tokens van de uitbater
+    let mollieData = oberData
+    let mollieOberId = oberId
+
+    if (oberData.account_type === 'medewerker' && oberData.bedrijf_id) {
+      const uitbaterSnap = await adminDb
+        .collection('obers')
+        .where('bedrijf_id', '==', oberData.bedrijf_id)
+        .where('account_type', '==', 'bedrijf')
+        .limit(1)
+        .get()
+
+      if (!uitbaterSnap.empty) {
+        mollieData = uitbaterSnap.docs[0].data()!
+        mollieOberId = uitbaterSnap.docs[0].id
+      }
+    }
+
+    // Haal abonnement status op (voor individueel: bepaalt application fee)
+    const abSnap = await adminDb.collection('abonnementen').doc(oberId === mollieOberId ? oberId : mollieOberId).get()
     const abStatus = abSnap.data()?.status ?? 'pending'
 
-    // Bepaal application fee (wat Miller Creative ontvangt via Mollie Connect)
-    // - Bedrijf betaalt abonnement apart → tips gaan 100% naar hen
-    // - Individueel pending → volledige tip (min Mollie's eigen fee) gaat naar abonnement
-    // - Individueel actief → geen application fee, ober houdt alles
+    // Application fee: alleen voor individueel pending accounts
+    // Medewerker/bedrijf betalen abonnement apart → geen application fee
     const isIndividueelPending =
       oberData.account_type === 'individueel' && abStatus === 'pending'
 
@@ -52,30 +68,26 @@ export async function POST(req: NextRequest) {
 
     let betaling
     let viaMollieConnect = false
-    let gebruiktAccessToken: string | null = null
 
-    // Probeer Mollie Connect als het account gekoppeld is
     const heeftConnect =
-      oberData.mollie_connected === true &&
-      oberData.mollie_access_token &&
-      oberData.mollie_refresh_token &&
-      oberData.mollie_token_expires_at
+      mollieData.mollie_connected === true &&
+      mollieData.mollie_access_token &&
+      mollieData.mollie_refresh_token &&
+      mollieData.mollie_token_expires_at
 
     if (heeftConnect) {
       try {
         const tokenResult = await getGeldigAccessToken({
-          mollie_access_token: oberData.mollie_access_token,
-          mollie_refresh_token: oberData.mollie_refresh_token,
-          mollie_token_expires_at: oberData.mollie_token_expires_at,
+          mollie_access_token: mollieData.mollie_access_token,
+          mollie_refresh_token: mollieData.mollie_refresh_token,
+          mollie_token_expires_at: mollieData.mollie_token_expires_at,
         })
 
-        // Vernieuwd token terugschrijven naar Firestore
         if (tokenResult.vernieuwd && tokenResult.nieuweData) {
-          await adminDb.collection('obers').doc(oberId).update(tokenResult.nieuweData)
+          await adminDb.collection('obers').doc(mollieOberId).update(tokenResult.nieuweData)
         }
 
-        gebruiktAccessToken = tokenResult.accessToken
-        const verbonden = verbondenMollieClient(gebruiktAccessToken)
+        const verbonden = verbondenMollieClient(tokenResult.accessToken)
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const connectParams: any = { ...gemeenschappelijkeParams }
@@ -96,12 +108,12 @@ export async function POST(req: NextRequest) {
         betaling = await mollie.payments.create(gemeenschappelijkeParams)
       }
     } else {
-      // Geen Mollie Connect: betaling op Miller Creative's account (handmatige uitbetaling nodig)
       betaling = await mollie.payments.create(gemeenschappelijkeParams)
     }
 
     await adminDb.collection('betalingen').add({
       ober_id: oberId,
+      mollie_ober_id: mollieOberId !== oberId ? mollieOberId : null,
       mollie_id: betaling.id,
       bedrag: bedragCenten,
       status: 'open',
