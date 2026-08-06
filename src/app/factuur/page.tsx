@@ -145,7 +145,7 @@ export default function FactuurPage() {
               {ober.straat}<br />
               {ober.postcode} {ober.stad}<br />
               {ober.email}
-              {ober.kvk && <><br />KvK: {ober.kvk}</>}
+              {ober.kvk && <><br />KBO: {ober.kvk}</>}
               {ober.btw_nummer && <><br />BTW: {ober.btw_nummer}</>}
             </div>
           </div>

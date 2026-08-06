@@ -225,10 +225,10 @@ export default function BedrijfInstellingen() {
           <div className="bg-white rounded-xl shadow-sm p-5 space-y-4">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Fiscaal & registratie</p>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">KvK / Ondernemingsnummer</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">KBO-nummer</label>
               <input type="text" value={kvk} onChange={e => setKvk(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 placeholder:text-gray-400 text-gray-900"
-                placeholder="BE 0xxx.xxx.xxx of KvK 12345678" />
+                placeholder="BE 0xxx.xxx.xxx" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">BTW-nummer <span className="text-gray-400 font-normal">(optioneel)</span></label>

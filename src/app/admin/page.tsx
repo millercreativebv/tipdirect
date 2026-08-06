@@ -448,7 +448,7 @@ export default function AdminDashboard() {
     const headers = [
       'Naam', 'Statutaire naam', 'E-mail', 'Telefoon',
       'Straat', 'Postcode', 'Stad', 'Land',
-      'BTW-nummer', 'KvK / Ondernemingsnr.',
+      'BTW-nummer', 'KBO-nummer',
       'Account type', 'IBAN', 'Status', 'Abonnementsbedrag (€)', 'Actief sinds',
       'Omzet totaal (€)',
     ]
@@ -697,7 +697,7 @@ export default function AdminDashboard() {
                               <DetailRegel label="BTW-nummer" waarde={a.btw_nummer} mono />
                               {a.account_type === 'bedrijf' && (
                                 <>
-                                  <DetailRegel label="KvK / Ondernemingsnr." waarde={a.kvk} mono />
+                                  <DetailRegel label="KBO-nummer" waarde={a.kvk} mono />
                                   <DetailRegel label="Statutaire naam" waarde={a.statutaire_naam} />
                                 </>
                               )}
