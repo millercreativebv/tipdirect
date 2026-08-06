@@ -29,14 +29,16 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const filter = searchParams.get('filter') ?? 'alle'
 
-  let query = adminDb.collection('kaart_sets').orderBy('set_id') as FirebaseFirestore.Query
+  // Gebruik enkel equality-filters (geen orderBy combinatie) om composite indexes te vermijden.
+  // set_id is alfabetisch gesorteerd (B-0001, B-0002, ...) dus client-side sortering klopt automatisch.
+  let query = adminDb.collection('kaart_sets') as FirebaseFirestore.Query
 
   if (filter === 'vrij') {
-    query = adminDb.collection('kaart_sets').where('status', '==', 'vrij').orderBy('set_id')
+    query = adminDb.collection('kaart_sets').where('status', '==', 'vrij')
   } else if (filter === 'bedrijf') {
-    query = adminDb.collection('kaart_sets').where('type', '==', 'bedrijf').orderBy('set_id')
+    query = adminDb.collection('kaart_sets').where('type', '==', 'bedrijf')
   } else if (filter === 'individueel') {
-    query = adminDb.collection('kaart_sets').where('type', '==', 'individueel').orderBy('set_id')
+    query = adminDb.collection('kaart_sets').where('type', '==', 'individueel')
   }
 
   const [setsSnap, vrijBedrijfSnap, vrijIndividueelSnap] = await Promise.all([
@@ -73,17 +75,16 @@ export async function POST(req: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://tipdirect.be'
   const aangemaakt_op = new Date().toISOString()
 
-  // Bepaal startnummer (hoogste bestaande set_nummer + 1)
-  const maxSnap = await adminDb.collection('kaart_sets')
+  // Startnummer = aantal bestaande sets van dit type + 1 (geen orderBy → geen composite index nodig)
+  const countSnap = await adminDb.collection('kaart_sets')
     .where('type', '==', type)
-    .orderBy('set_nummer', 'desc')
-    .limit(1)
+    .count()
     .get()
-  const startNummer = maxSnap.empty ? 1 : (maxSnap.docs[0].data().set_nummer as number) + 1
+  const startNummer = countSnap.data().count + 1
 
-  // Laad alle bestaande codes om duplicaten te voorkomen
-  const bestaandSnap = await adminDb.collection('kaart_codes').select().get()
-  const bestaand = new Set(bestaandSnap.docs.map(d => d.id))
+  // Houd gegenereerde codes bij om dubbels binnen deze batch te voorkomen
+  // (kans op botsing met bestaande codes is te verwaarlozen bij 32^6 ≈ 1 miljard mogelijkheden)
+  const bestaand = new Set<string>()
 
   const aangemaakteSets: string[] = []
   const batch = adminDb.batch()
