@@ -1201,7 +1201,8 @@ export default function AdminDashboard() {
               <form onSubmit={configOpslaanHandler} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Individuele ober</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-0.5">Individuele ober</label>
+                    <p className="text-xs text-gray-400 mb-1.5">Incl. 21% BTW — Mollie int dit bedrag exact</p>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">€</span>
                       <input
@@ -1214,7 +1215,8 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bedrijf / uitbater</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-0.5">Bedrijf / uitbater</label>
+                    <p className="text-xs text-gray-400 mb-1.5">Excl. BTW — systeem telt 21% op (€75 → €90,75)</p>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">€</span>
                       <input
@@ -1222,7 +1224,7 @@ export default function AdminDashboard() {
                         value={nieuwBedragBedrijf}
                         onChange={(e) => setNieuwBedragBedrijf(e.target.value)}
                         className="w-full pl-8 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-gray-900"
-                        placeholder="60,00"
+                        placeholder="75,00"
                       />
                     </div>
                   </div>
