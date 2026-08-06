@@ -6,17 +6,20 @@ import { onAuthStateChanged, getIdToken, signOut } from 'firebase/auth'
 import { euro } from '@/lib/utils'
 import Image from 'next/image'
 
+type TegoedRegel = {
+  id: string
+  maand: string
+  bedrag: number
+  status: 'open' | 'uitbetaald'
+  uitbetaald_op: string | null
+}
+
 type PartnerData = {
   partner: { naam: string; email: string; land: string; iban: string | null }
   accounts: { totaal: number; actief: number; pending: number; vervallen: number }
   openTegoed: number
-  tegoedLijst: {
-    id: string
-    maand: string
-    bedrag: number
-    status: 'open' | 'uitbetaald'
-    uitbetaald_op: string | null
-  }[]
+  tegoedTotaal: number
+  tegoedLijst: TegoedRegel[]
 }
 
 export default function PartnerDashboard() {
@@ -67,7 +70,7 @@ export default function PartnerDashboard() {
 
   if (!data) return null
 
-  const { partner, accounts, openTegoed, tegoedLijst } = data
+  const { partner, accounts, openTegoed, tegoedTotaal, tegoedLijst } = data
 
   const maandNamen: Record<string, string> = {
     '01': 'januari', '02': 'februari', '03': 'maart', '04': 'april',
@@ -78,6 +81,29 @@ export default function PartnerDashboard() {
   function maandLabel(maand: string) {
     const [jaar, m] = maand.split('-')
     return `${maandNamen[m] ?? m} ${jaar}`
+  }
+
+  function downloadCsv() {
+    const rijen: string[][] = [
+      ['Maand', 'Commissie (€)', 'Status', 'Uitbetaald op'],
+      ...tegoedLijst.map(t => {
+        const [jaar, m] = t.maand.split('-')
+        return [
+          `${maandNamen[m] ?? m} ${jaar}`,
+          (t.bedrag / 100).toFixed(2).replace('.', ','),
+          t.status === 'uitbetaald' ? 'Uitbetaald' : 'Openstaand',
+          t.uitbetaald_op ? new Date(t.uitbetaald_op).toLocaleDateString('nl-NL') : '',
+        ]
+      }),
+    ]
+    const csv = rijen.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `commissie-overzicht-${new Date().getFullYear()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -99,14 +125,21 @@ export default function PartnerDashboard() {
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
 
-        {/* Open tegoed banner */}
-        {openTegoed > 0 && (
-          <div className="bg-brand-500 rounded-xl p-4 text-white">
-            <p className="text-sm opacity-80">Openstaand tegoed</p>
-            <p className="text-3xl font-bold mt-1">€{euro(openTegoed)}</p>
-            <p className="text-sm opacity-70 mt-1">Wordt automatisch uitbetaald aan het einde van de maand</p>
+        {/* Tegoed kaarten */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className={`rounded-xl p-4 ${openTegoed > 0 ? 'bg-brand-500 text-white' : 'bg-gray-100'}`}>
+            <p className={`text-xs ${openTegoed > 0 ? 'opacity-80' : 'text-gray-500'}`}>Openstaand</p>
+            <p className={`text-2xl font-bold mt-1 ${openTegoed > 0 ? '' : 'text-gray-700'}`}>€{euro(openTegoed)}</p>
+            <p className={`text-xs mt-1 ${openTegoed > 0 ? 'opacity-70' : 'text-gray-400'}`}>
+              {openTegoed > 0 ? 'Te factureren aan Miller Creative' : 'Alles voldaan'}
+            </p>
           </div>
-        )}
+          <div className="bg-gray-100 rounded-xl p-4">
+            <p className="text-xs text-gray-500">Totale commissie ooit</p>
+            <p className="text-2xl font-bold mt-1 text-gray-800">€{euro(tegoedTotaal)}</p>
+            <p className="text-xs text-gray-400 mt-1">alle periodes samen</p>
+          </div>
+        </div>
 
         {/* Account stats */}
         <div className="bg-white rounded-xl shadow-sm p-5">
@@ -134,8 +167,16 @@ export default function PartnerDashboard() {
 
         {/* Uitbetalingshistorie */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-gray-100">
-            <h2 className="font-bold text-gray-900">Uitbetalingsoverzicht</h2>
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="font-bold text-gray-900">Commissieoverzicht</h2>
+            {tegoedLijst.length > 0 && (
+              <button
+                onClick={downloadCsv}
+                className="text-xs text-brand-600 hover:text-brand-800 font-medium border border-brand-200 hover:border-brand-400 px-3 py-1.5 rounded-lg transition-all"
+              >
+                ↓ Download CSV
+              </button>
+            )}
           </div>
 
           {tegoedLijst.length === 0 ? (

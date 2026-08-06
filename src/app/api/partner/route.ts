@@ -46,6 +46,9 @@ export async function GET(req: NextRequest) {
     .filter(d => d.data().status === 'open')
     .reduce((sum, d) => sum + (d.data().bedrag ?? 0), 0)
 
+  const tegoedTotaal = tegoedSnap.docs
+    .reduce((sum, d) => sum + (d.data().bedrag ?? 0), 0)
+
   return NextResponse.json({
     partner: { id: partnerSnap.id, ...partnerSnap.data() },
     accounts: {
@@ -53,6 +56,7 @@ export async function GET(req: NextRequest) {
       ...abStats,
     },
     openTegoed,
+    tegoedTotaal,
     tegoedLijst,
   })
 }

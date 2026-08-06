@@ -7,7 +7,7 @@ async function isAdmin(userId: string): Promise<boolean> {
   return snap.data()?.admin === true
 }
 
-// GET — lijst van alle partners
+// GET — lijst van alle partners incl. tegoed-samenvatting en volledige geschiedenis
 export async function GET(req: NextRequest) {
   const userId = await getUserId(req)
   if (!userId || !(await isAdmin(userId))) {
@@ -15,7 +15,27 @@ export async function GET(req: NextRequest) {
   }
 
   const snap = await adminDb.collection('partners').get()
-  const partners = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+  const partners = await Promise.all(snap.docs.map(async d => {
+    const tegoedSnap = await adminDb
+      .collection('partner_tegoed')
+      .where('partner_id', '==', d.id)
+      .get()
+
+    const tegoedLijst = tegoedSnap.docs
+      .map(t => ({ id: t.id, ...t.data() }))
+      .sort((a, b) => String((b as Record<string, unknown>).maand ?? '').localeCompare(String((a as Record<string, unknown>).maand ?? '')))
+
+    const tegoed_open = tegoedSnap.docs
+      .filter(t => t.data().status === 'open')
+      .reduce((s, t) => s + (t.data().bedrag ?? 0), 0)
+
+    const tegoed_totaal = tegoedSnap.docs
+      .reduce((s, t) => s + (t.data().bedrag ?? 0), 0)
+
+    return { id: d.id, ...d.data(), tegoed_open, tegoed_totaal, tegoed_lijst: tegoedLijst }
+  }))
+
   return NextResponse.json({ partners })
 }
 

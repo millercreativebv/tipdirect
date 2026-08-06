@@ -55,6 +55,14 @@ const STATUS_KLEUR: Record<string, string> = {
   vervallen: 'bg-red-100 text-red-700',
 }
 
+type PartnerTegoed = {
+  id: string
+  maand: string
+  bedrag: number
+  status: 'open' | 'uitbetaald'
+  uitbetaald_op: string | null
+}
+
 type PartnerItem = {
   id: string
   naam: string
@@ -62,6 +70,9 @@ type PartnerItem = {
   land: string
   iban: string | null
   actief: boolean
+  tegoed_open: number
+  tegoed_totaal: number
+  tegoed_lijst: PartnerTegoed[]
 }
 
 type Tab = 'abonnementen' | 'uitbetalingen' | 'partners' | 'instellingen'
@@ -104,6 +115,8 @@ export default function AdminDashboard() {
   const [partnerMelding, setPartnerMelding] = useState('')
   const [uitbPartnerBezig, setUitbPartnerBezig] = useState(false)
   const [uitbPartnerMelding, setUitbPartnerMelding] = useState('')
+  const [commissieBevestig, setCommissieBevestig] = useState<string | null>(null)
+  const [commissieBezig, setCommissieBezig] = useState<string | null>(null)
   const [activeerBezig, setActiveerBezig] = useState<string | null>(null)
   const [openDetail, setOpenDetail] = useState<string | null>(null)
   const [verwijderBezig, setVerwijderBezig] = useState<string | null>(null)
@@ -182,6 +195,55 @@ export default function AdminDashboard() {
       ? 'Geen openstaand tegoed om uit te betalen.'
       : `${data.verwerkt} uitbetaling(en) geïnitieerd via Mollie.`)
     setUitbPartnerBezig(false)
+  }
+
+  async function commissieVoldaan(partnerId: string) {
+    setCommissieBezig(partnerId)
+    setCommissieBevestig(null)
+    const res = await fetch('/api/admin/partner-betaald', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ partnerId }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      const bedragEuro = (data.bedrag / 100).toFixed(2).replace('.', ',')
+      setUitbPartnerMelding(`✅ €${bedragEuro} gemarkeerd als uitbetaald (${data.maanden} maand${data.maanden !== 1 ? 'en' : ''}).`)
+      await laadPartners(token)
+    } else {
+      setUitbPartnerMelding(`Fout: ${data.fout}`)
+    }
+    setCommissieBezig(null)
+  }
+
+  function downloadPartnerCsv(partner: PartnerItem) {
+    const maandNamen: Record<string, string> = {
+      '01': 'januari', '02': 'februari', '03': 'maart', '04': 'april',
+      '05': 'mei', '06': 'juni', '07': 'juli', '08': 'augustus',
+      '09': 'september', '10': 'oktober', '11': 'november', '12': 'december',
+    }
+    const rijen: string[][] = [
+      ['Maand', 'Commissie (€)', 'Status', 'Uitbetaald op'],
+      ...partner.tegoed_lijst.map(t => {
+        const [jaar, m] = t.maand.split('-')
+        return [
+          `${maandNamen[m] ?? m} ${jaar}`,
+          (t.bedrag / 100).toFixed(2).replace('.', ','),
+          t.status === 'uitbetaald' ? 'Uitbetaald' : 'Openstaand',
+          t.uitbetaald_op
+            ? new Date(t.uitbetaald_op).toLocaleDateString('nl-NL')
+            : '',
+        ]
+      }),
+    ]
+    const csv = rijen.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `commissie-${partner.naam.replace(/\s+/g, '-').toLowerCase()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   async function laadUitbetalingen() {
@@ -697,24 +759,13 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            {/* Uitbetalen */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="font-bold text-gray-900 mb-1">Automatische uitbetaling</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Betaalt alle openstaande partner-tegoeden uit via Mollie bankoverschrijving.
-                Draait automatisch elke maand via cron — of handmatig hieronder.
-              </p>
-              <button onClick={uitbetalenPartner} disabled={uitbPartnerBezig}
-                className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all">
-                {uitbPartnerBezig ? 'Bezig...' : 'Nu uitbetalen'}
-              </button>
-              {uitbPartnerMelding && <p className="text-sm text-gray-600 mt-3">{uitbPartnerMelding}</p>}
-            </div>
-
             {/* Partnerlijst */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-gray-100">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="font-bold text-gray-900">Actieve partners</h2>
+                {uitbPartnerMelding && (
+                  <p className="text-sm text-emerald-600 font-medium">{uitbPartnerMelding}</p>
+                )}
               </div>
               {partnerLaden ? (
                 <div className="p-8 flex justify-center">
@@ -723,23 +774,112 @@ export default function AdminDashboard() {
               ) : partners.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">Nog geen partners aangemaakt.</div>
               ) : (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-gray-100">
                   {partners.map(p => (
-                    <div key={p.id} className="px-4 py-3 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{p.naam}</p>
-                        <p className="text-xs text-gray-400">{p.email} · {p.land}</p>
-                        {p.iban && <p className="text-xs font-mono text-gray-400 mt-0.5">{p.iban}</p>}
+                    <div key={p.id} className="p-4 space-y-3">
+                      {/* Naam + status */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-gray-900">{p.naam}</p>
+                          <p className="text-xs text-gray-400">{p.email} · {p.land}</p>
+                          {p.iban && <p className="text-xs font-mono text-gray-400 mt-0.5">{p.iban}</p>}
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${p.actief ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {p.actief ? 'Actief' : 'Inactief'}
+                          </span>
+                          <a href={`/registreer?partner=${p.id}`} target="_blank"
+                            className="text-xs text-brand-500 hover:underline">
+                            Referral-link
+                          </a>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${p.actief ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                          {p.actief ? 'Actief' : 'Inactief'}
-                        </span>
-                        <a href={`/registreer?partner=${p.id}`} target="_blank"
-                          className="text-xs text-brand-500 hover:underline">
-                          Referral-link
-                        </a>
+
+                      {/* Tegoed-samenvatting */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                          <p className="text-xs text-amber-600 mb-0.5">Openstaand</p>
+                          <p className="text-lg font-bold text-amber-800">€{euro(p.tegoed_open)}</p>
+                          <p className="text-xs text-amber-500">te factureren aan MC</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-3">
+                          <p className="text-xs text-gray-500 mb-0.5">Totale commissie ooit</p>
+                          <p className="text-lg font-bold text-gray-800">€{euro(p.tegoed_totaal)}</p>
+                          <p className="text-xs text-gray-400">alle periodes</p>
+                        </div>
                       </div>
+
+                      {/* Acties */}
+                      <div className="flex gap-2">
+                        {commissieBevestig === p.id ? (
+                          <>
+                            <button
+                              onClick={() => commissieVoldaan(p.id)}
+                              disabled={commissieBezig === p.id}
+                              className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 text-white text-sm font-bold rounded-xl transition-all"
+                            >
+                              {commissieBezig === p.id ? 'Verwerken...' : 'Ja, bevestigen'}
+                            </button>
+                            <button
+                              onClick={() => setCommissieBevestig(null)}
+                              className="px-4 py-2 border-2 border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:border-gray-300 transition-all"
+                            >
+                              Annuleer
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => p.tegoed_open > 0 ? setCommissieBevestig(p.id) : null}
+                            disabled={p.tegoed_open === 0 || commissieBezig === p.id}
+                            className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-all"
+                          >
+                            {p.tegoed_open === 0 ? 'Commissie voldaan ✓' : 'Commissie voldaan markeren'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => downloadPartnerCsv(p)}
+                          className="px-4 py-2 border-2 border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:border-brand-400 hover:text-brand-600 transition-all"
+                          title="Download CSV"
+                        >
+                          ↓ CSV
+                        </button>
+                      </div>
+
+                      {/* Maandoverzicht (uitklapbaar via de lijst zelf) */}
+                      {p.tegoed_lijst.length > 0 && (
+                        <div className="border border-gray-100 rounded-xl overflow-hidden">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-gray-50 text-gray-500">
+                                <th className="px-3 py-2 text-left font-medium">Periode</th>
+                                <th className="px-3 py-2 text-right font-medium">Commissie</th>
+                                <th className="px-3 py-2 text-right font-medium">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {p.tegoed_lijst.map(t => {
+                                const [jaar, m] = t.maand.split('-')
+                                const maandNamen: Record<string, string> = {
+                                  '01': 'jan', '02': 'feb', '03': 'mrt', '04': 'apr',
+                                  '05': 'mei', '06': 'jun', '07': 'jul', '08': 'aug',
+                                  '09': 'sep', '10': 'okt', '11': 'nov', '12': 'dec',
+                                }
+                                return (
+                                  <tr key={t.id} className="text-gray-700">
+                                    <td className="px-3 py-2">{maandNamen[m] ?? m} {jaar}</td>
+                                    <td className="px-3 py-2 text-right font-mono">€{euro(t.bedrag)}</td>
+                                    <td className="px-3 py-2 text-right">
+                                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${t.status === 'uitbetaald' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                        {t.status === 'uitbetaald' ? 'Voldaan' : 'Open'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
