@@ -315,48 +315,68 @@ export default function DashboardPagina() {
           </div>
         )}
 
-        {/* QR Code */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => setQrZichtbaar(!qrZichtbaar)}
-            className="w-full p-4 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">📱</span>
-              <div className="text-left">
-                <p className="font-semibold text-gray-900">Mijn QR-code</p>
-                <p className="text-sm text-gray-400">Klanten scannen dit om te betalen</p>
+        {/* QR Code — alleen beschikbaar na Mollie koppeling */}
+        {ober.mollie_connected ? (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <button
+              onClick={() => setQrZichtbaar(!qrZichtbaar)}
+              className="w-full p-4 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">📱</span>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-900">Mijn QR-code</p>
+                  <p className="text-sm text-gray-400">Klanten scannen dit om te betalen</p>
+                </div>
+              </div>
+              <span className="text-gray-400">{qrZichtbaar ? '▲' : '▼'}</span>
+            </button>
+
+            {qrZichtbaar && (
+              <div className="px-4 pb-4 flex flex-col items-center gap-4">
+                <canvas ref={qrCanvasRef} className="rounded-xl" />
+                <p className="text-sm text-gray-400 text-center">{qrUrl}</p>
+                <button
+                  onClick={qrDownloaden}
+                  className="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all"
+                >
+                  QR-code downloaden
+                </button>
+                <Link
+                  href="/dashboard/qr-kaart"
+                  className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition-all text-center"
+                >
+                  Afdrukken als pasje (creditcardformaat)
+                </Link>
+                <Link
+                  href={`/${ober.gebruikersnaam}`}
+                  target="_blank"
+                  className="w-full py-3 border-2 border-brand-500 text-brand-700 font-bold rounded-xl transition-all text-center"
+                >
+                  Betaalpagina bekijken
+                </Link>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-5">
+            <div className="flex items-start gap-3 mb-4">
+              <span className="text-2xl flex-shrink-0">⚠️</span>
+              <div>
+                <p className="font-bold text-amber-900">Koppel Mollie om je QR-code te activeren</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  Zonder Mollie-koppeling kunnen klanten niet betalen. Koppel eerst je Mollie-account zodat fooien direct op jouw rekening binnenkomen.
+                </p>
               </div>
             </div>
-            <span className="text-gray-400">{qrZichtbaar ? '▲' : '▼'}</span>
-          </button>
-
-          {qrZichtbaar && (
-            <div className="px-4 pb-4 flex flex-col items-center gap-4">
-              <canvas ref={qrCanvasRef} className="rounded-xl" />
-              <p className="text-sm text-gray-400 text-center">{qrUrl}</p>
-              <button
-                onClick={qrDownloaden}
-                className="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all"
-              >
-                QR-code downloaden
-              </button>
-              <Link
-                href="/dashboard/qr-kaart"
-                className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition-all text-center"
-              >
-                Afdrukken als pasje (creditcardformaat)
-              </Link>
-              <Link
-                href={`/${ober.gebruikersnaam}`}
-                target="_blank"
-                className="w-full py-3 border-2 border-brand-500 text-brand-700 font-bold rounded-xl transition-all text-center"
-              >
-                Betaalpagina bekijken
-              </Link>
-            </div>
-          )}
-        </div>
+            <Link
+              href="/dashboard/profiel"
+              className="block w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition-all text-center"
+            >
+              Mollie koppelen →
+            </Link>
+          </div>
+        )}
 
         {/* Recente tips */}
         <div className="bg-white rounded-xl shadow-sm">

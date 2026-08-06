@@ -26,6 +26,23 @@ export default async function BetaalPagina({ params }: { params: Promise<{ gebru
     bedrijf_id: (d.bedrijf_id as string | null) ?? null,
   }
 
+  // Individueel account zonder Mollie Connect → kan geen fooien ontvangen
+  if (ober.account_type === 'individueel' && !d.mollie_connected) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="text-center max-w-xs">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">🔗</span>
+          </div>
+          <h1 className="text-lg font-bold text-gray-900 mb-2">Nog niet beschikbaar</h1>
+          <p className="text-sm text-gray-500">
+            {ober.naam} heeft zijn betaalkoppeling nog niet geactiveerd. Probeer het later opnieuw.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   let bedrijf: { id: string; naam: string; logo_url: string | null } | null = null
 
   if (ober.account_type === 'medewerker' && ober.bedrijf_id) {

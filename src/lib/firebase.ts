@@ -46,6 +46,8 @@ export type Ober = {
   spaardoel_bedrag?: number | null
   admin?: boolean
   abonnement_actief?: boolean
+  mollie_connected?: boolean
+  mollie_connected_naam?: string | null
 }
 
 export type Partner = {
