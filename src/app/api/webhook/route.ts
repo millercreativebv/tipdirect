@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
       }, { merge: true })
 
       await adminDb.collection('obers').doc(oberId).update({ abonnement_actief: true, actief: true })
+      await wijsKaartCodesAutoToe(oberId, 'bedrijf')
 
       const feeVerdeling = berekenFeeVerdeling(bedragCenten)
       if (partnerId) {
@@ -124,6 +125,7 @@ export async function POST(req: NextRequest) {
       }, { merge: true })
 
       await adminDb.collection('obers').doc(oberId).update({ abonnement_actief: true, actief: true })
+      await wijsKaartCodesAutoToe(oberId, 'individueel')
 
       await betalingDoc.ref.update({
         status: nieuweStatus,
@@ -165,6 +167,8 @@ export async function POST(req: NextRequest) {
         if (partnerId && feeVerdeling.strictly_hospitality > 0) {
           await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
         }
+
+        if (abonnementNuActief) await wijsKaartCodesAutoToe(oberId, 'individueel')
 
         await betalingDoc.ref.update({
           status: nieuweStatus,
@@ -255,6 +259,8 @@ export async function POST(req: NextRequest) {
       abonnement_nu_actief: abonnementNuActief,
     })
 
+    if (abonnementNuActief) await wijsKaartCodesAutoToe(abonnementOberId, 'individueel')
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('Webhook fout:', err)
@@ -278,6 +284,71 @@ function berekenFeeVerdeling(bedragExBtwCenten: number) {
   const marketing = Math.round(bedragExBtwCenten * 0.15)  // Marketing — blijft bij Miller Creative
   const mc = bedragExBtwCenten - sh - marketing
   return { miller_creative: mc, strictly_hospitality: sh, marketing }
+}
+
+// Koppelt automatisch kaartcodes + maakt een kaart_order aan bij activering.
+// accountType bepaalt hoeveel codes: 'bedrijf' → 10, anders → 2
+async function wijsKaartCodesAutoToe(oberId: string, accountType: string) {
+  try {
+    const aantal = accountType === 'bedrijf' ? 10 : 2
+
+    // Check of er al een eerste toewijzing is geweest
+    const bestaandSnap = await adminDb
+      .collection('kaart_orders')
+      .where('ober_id', '==', oberId)
+      .where('type', '==', 'inclusief')
+      .limit(1)
+      .get()
+    if (!bestaandSnap.empty) return // al toegewezen
+
+    const oberSnap = await adminDb.collection('obers').doc(oberId).get()
+    if (!oberSnap.exists) return
+    const ober = oberSnap.data()!
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://tipdirect.be'
+    const redirectUrl = `${baseUrl}/${ober.gebruikersnaam}`
+
+    const vrijSnap = await adminDb
+      .collection('kaart_codes')
+      .where('ober_id', '==', null)
+      .limit(aantal)
+      .get()
+
+    const nu = new Date().toISOString()
+
+    // Maak order aan (ook als er onvoldoende codes zijn — admin handelt bij)
+    const orderRef = adminDb.collection('kaart_orders').doc()
+    await orderRef.set({
+      ober_id: oberId,
+      naam: ober.naam ?? '',
+      account_type: accountType,
+      aantal,
+      type: 'inclusief',
+      status: vrijSnap.size >= aantal ? 'aangevraagd' : 'wacht_op_voorraad',
+      codes: vrijSnap.docs.map(d => d.id),
+      track_trace: null,
+      aangemaakt_op: nu,
+      verzonden_op: null,
+    })
+
+    if (vrijSnap.size > 0) {
+      const batch = adminDb.batch()
+      for (const doc of vrijSnap.docs) {
+        batch.update(doc.ref, {
+          ober_id: oberId,
+          naam: ober.naam ?? null,
+          gebruikersnaam: ober.gebruikersnaam ?? null,
+          redirect_url: redirectUrl,
+          toegewezen_op: nu,
+          kaart_order_id: orderRef.id,
+        })
+      }
+      await batch.commit()
+    }
+  } catch (err) {
+    // Niet-kritiek: log maar blokkeer de betaling-flow niet
+    console.error('Kaartcodes auto-toewijzen mislukt:', err)
+  }
 }
 
 async function verwerkPartnerTegoed(partnerId: string, bedragCenten: number, betalingId: string) {

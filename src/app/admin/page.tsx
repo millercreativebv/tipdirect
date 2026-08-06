@@ -75,7 +75,20 @@ type PartnerItem = {
   tegoed_lijst: PartnerTegoed[]
 }
 
-type Tab = 'abonnementen' | 'uitbetalingen' | 'partners' | 'instellingen'
+type KaartOrder = {
+  id: string
+  naam: string
+  account_type: string
+  aantal: number
+  type: 'inclusief' | 'bijbestelling' | 'toewijzing'
+  status: 'aangevraagd' | 'wacht_op_voorraad' | 'in_productie' | 'verzonden' | 'geleverd'
+  codes: string[]
+  track_trace: string | null
+  aangemaakt_op: string
+  verzonden_op: string | null
+}
+
+type Tab = 'abonnementen' | 'uitbetalingen' | 'partners' | 'kaarten' | 'instellingen'
 
 function DetailRegel({ label, waarde, mono = false }: { label: string; waarde: string | null | undefined; mono?: boolean }) {
   if (!waarde) return null
@@ -117,6 +130,15 @@ export default function AdminDashboard() {
   const [uitbPartnerMelding, setUitbPartnerMelding] = useState('')
   const [commissieBevestig, setCommissieBevestig] = useState<string | null>(null)
   const [commissieBezig, setCommissieBezig] = useState<string | null>(null)
+  const [kaartOrders, setKaartOrders] = useState<KaartOrder[]>([])
+  const [kaartOrdersLaden, setKaartOrdersLaden] = useState(false)
+  const [kaartOrderFilter, setKaartOrderFilter] = useState<string>('alle')
+  const [kaartVoorraad, setKaartVoorraad] = useState<{ totaal: number; vrij: number; toegewezen: number } | null>(null)
+  const [kaartGenereerAantal, setKaartGenereerAantal] = useState('50')
+  const [kaartGenereerBezig, setKaartGenereerBezig] = useState(false)
+  const [kaartMelding, setKaartMelding] = useState('')
+  const [kaartOrderBezig, setKaartOrderBezig] = useState<string | null>(null)
+  const [kaartTrackTrace, setKaartTrackTrace] = useState<Record<string, string>>({})
   const [activeerBezig, setActiveerBezig] = useState<string | null>(null)
   const [openDetail, setOpenDetail] = useState<string | null>(null)
   const [verwijderBezig, setVerwijderBezig] = useState<string | null>(null)
@@ -273,6 +295,73 @@ export default function AdminDashboard() {
     setBezig(null)
   }
 
+  async function laadKaartOrders(statusFilter = kaartOrderFilter) {
+    setKaartOrdersLaden(true)
+    const [ordersRes, voorraadRes] = await Promise.all([
+      fetch(`/api/admin/kaart-orders?status=${statusFilter}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch('/api/admin/kaart-codes?filter=alle', { headers: { Authorization: `Bearer ${token}` } }),
+    ])
+    if (ordersRes.ok) setKaartOrders((await ordersRes.json()).orders)
+    if (voorraadRes.ok) {
+      const d = await voorraadRes.json()
+      setKaartVoorraad({ totaal: d.totaal, vrij: d.vrij, toegewezen: d.toegewezen })
+    }
+    setKaartOrdersLaden(false)
+  }
+
+  useEffect(() => {
+    if (tab === 'kaarten' && token) laadKaartOrders()
+  }, [tab, token]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function genereerKaartCodes() {
+    setKaartGenereerBezig(true)
+    setKaartMelding('')
+    const res = await fetch('/api/admin/kaart-codes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ aantal: parseInt(kaartGenereerAantal) }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setKaartMelding(`✅ ${data.aangemaakt} nieuwe codes aangemaakt (serie: ${data.serie})`)
+      await laadKaartOrders()
+    } else {
+      setKaartMelding(`Fout: ${data.fout}`)
+    }
+    setKaartGenereerBezig(false)
+  }
+
+  async function updateKaartOrderStatus(orderId: string, status: string) {
+    setKaartOrderBezig(orderId)
+    const tt = kaartTrackTrace[orderId] ?? null
+    const res = await fetch('/api/admin/kaart-orders', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ orderId, status, track_trace: tt }),
+    })
+    if (res.ok) {
+      setKaartMelding(`✅ Order bijgewerkt naar "${status}"`)
+      await laadKaartOrders()
+    }
+    setKaartOrderBezig(null)
+  }
+
+  function downloadKaartCsv(order: KaartOrder) {
+    const baseUrl = 'https://tipdirect.be'
+    const rijen: string[][] = [
+      ['Code', 'URL (QR / NFC)', 'Klantnaam', 'Type'],
+      ...order.codes.map(c => [c, `${baseUrl}/c/${c}`, order.naam, order.type]),
+    ]
+    const csv = rijen.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `kaarten-${order.naam.replace(/\s+/g, '-').toLowerCase()}-${order.id.slice(0, 6)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function voerCronUit() {
     setCronBezig(true)
     setCronResultaat('')
@@ -424,6 +513,7 @@ export default function AdminDashboard() {
             { id: 'abonnementen', label: 'Abonnementen' },
             { id: 'uitbetalingen', label: `Uitbetalingen${uitbetalingen.length > 0 ? ` (${uitbetalingen.length})` : ''}` },
             { id: 'partners', label: 'Partners' },
+            { id: 'kaarten', label: 'Kaarten' },
             { id: 'instellingen', label: 'Instellingen' },
           ] as { id: Tab; label: string }[]).map(t => (
             <button
@@ -882,6 +972,151 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── TAB: KAARTEN ── */}
+        {tab === 'kaarten' && (
+          <>
+            {/* Voorraad */}
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h2 className="font-bold text-gray-900 mb-4">Voorraad kaartcodes</h2>
+              {kaartVoorraad ? (
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                  {[
+                    { label: 'Totaal', waarde: kaartVoorraad.totaal, kleur: 'text-gray-800' },
+                    { label: 'Vrij', waarde: kaartVoorraad.vrij, kleur: 'text-emerald-600' },
+                    { label: 'Toegewezen', waarde: kaartVoorraad.toegewezen, kleur: 'text-brand-600' },
+                  ].map(s => (
+                    <div key={s.label} className="bg-gray-50 rounded-xl p-3 text-center">
+                      <p className={`text-2xl font-bold ${s.kleur}`}>{s.waarde}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-12 flex items-center justify-center">
+                  <div className="w-5 h-5 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">Aantal te genereren</label>
+                  <input
+                    type="number" min="1" max="500"
+                    value={kaartGenereerAantal}
+                    onChange={e => setKaartGenereerAantal(e.target.value)}
+                    className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand-500 text-sm text-gray-900"
+                  />
+                </div>
+                <button
+                  onClick={genereerKaartCodes}
+                  disabled={kaartGenereerBezig}
+                  className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all text-sm"
+                >
+                  {kaartGenereerBezig ? 'Bezig...' : 'Genereer codes'}
+                </button>
+              </div>
+              {kaartMelding && <p className="text-sm text-emerald-600 mt-3">{kaartMelding}</p>}
+            </div>
+
+            {/* Orders */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3">
+                <h2 className="font-bold text-gray-900">Kaartorders</h2>
+                <div className="flex gap-1">
+                  {(['alle', 'aangevraagd', 'wacht_op_voorraad', 'in_productie', 'verzonden', 'geleverd'] as const).map(f => (
+                    <button key={f}
+                      onClick={() => { setKaartOrderFilter(f); laadKaartOrders(f) }}
+                      className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${kaartOrderFilter === f ? 'bg-brand-500 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                    >
+                      {f === 'alle' ? 'Alle' : f === 'wacht_op_voorraad' ? 'Wacht op voorraad' : f.charAt(0).toUpperCase() + f.slice(1).replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {kaartOrdersLaden ? (
+                <div className="p-8 flex justify-center">
+                  <div className="w-6 h-6 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : kaartOrders.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 text-sm">Geen orders gevonden.</div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {kaartOrders.map(order => {
+                    const statusKleur: Record<string, string> = {
+                      aangevraagd: 'bg-amber-100 text-amber-700',
+                      wacht_op_voorraad: 'bg-red-100 text-red-700',
+                      in_productie: 'bg-blue-100 text-blue-700',
+                      verzonden: 'bg-purple-100 text-purple-700',
+                      geleverd: 'bg-emerald-100 text-emerald-700',
+                    }
+                    return (
+                      <div key={order.id} className="p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-gray-900">{order.naam}</p>
+                            <p className="text-xs text-gray-400">
+                              {order.type === 'inclusief' ? '🎁 Inclusief' : order.type === 'bijbestelling' ? '🔄 Bijbestelling' : '🔗 Toewijzing'} · {order.aantal} kaarten · {new Date(order.aangemaakt_op).toLocaleDateString('nl-NL')}
+                            </p>
+                            {order.codes.length > 0 && (
+                              <p className="text-xs font-mono text-gray-400 mt-0.5">{order.codes.slice(0, 3).join(', ')}{order.codes.length > 3 ? ` +${order.codes.length - 3}` : ''}</p>
+                            )}
+                          </div>
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 ${statusKleur[order.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                            {order.status.replace('_', ' ')}
+                          </span>
+                        </div>
+
+                        <div className="flex gap-2 flex-wrap">
+                          {order.status === 'aangevraagd' && (
+                            <button onClick={() => updateKaartOrderStatus(order.id, 'in_productie')}
+                              disabled={kaartOrderBezig === order.id}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 text-white text-xs font-bold rounded-lg transition-all">
+                              In productie
+                            </button>
+                          )}
+                          {order.status === 'in_productie' && (
+                            <div className="flex gap-2 items-center w-full">
+                              <input
+                                type="text"
+                                placeholder="Track & trace (optioneel)"
+                                value={kaartTrackTrace[order.id] ?? ''}
+                                onChange={e => setKaartTrackTrace(p => ({ ...p, [order.id]: e.target.value }))}
+                                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-brand-500"
+                              />
+                              <button onClick={() => updateKaartOrderStatus(order.id, 'verzonden')}
+                                disabled={kaartOrderBezig === order.id}
+                                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 text-white text-xs font-bold rounded-lg transition-all">
+                                Verzonden
+                              </button>
+                            </div>
+                          )}
+                          {order.status === 'verzonden' && (
+                            <button onClick={() => updateKaartOrderStatus(order.id, 'geleverd')}
+                              disabled={kaartOrderBezig === order.id}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 text-white text-xs font-bold rounded-lg transition-all">
+                              Geleverd
+                            </button>
+                          )}
+                          {order.codes.length > 0 && (
+                            <button onClick={() => downloadKaartCsv(order)}
+                              className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-medium rounded-lg hover:border-brand-400 hover:text-brand-600 transition-all">
+                              ↓ CSV voor drukker/NFC
+                            </button>
+                          )}
+                        </div>
+
+                        {order.track_trace && (
+                          <p className="text-xs text-gray-500">Track & trace: <span className="font-mono">{order.track_trace}</span></p>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

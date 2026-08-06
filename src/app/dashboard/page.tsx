@@ -54,6 +54,9 @@ export default function DashboardPagina() {
   const [qrZichtbaar, setQrZichtbaar] = useState(false)
   const [periode, setPeriode] = useState<Periode>('maand')
   const qrCanvasRef = useRef<HTMLCanvasElement>(null)
+  const [kaartOrders, setKaartOrders] = useState<{ id: string; status: string; aantal: number; type: string; track_trace: string | null; verzonden_op: string | null }[]>([])
+  const [bijbestelBezig, setBijbestelBezig] = useState(false)
+  const [bijbestelMelding, setBijbestelMelding] = useState('')
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -85,12 +88,14 @@ export default function DashboardPagina() {
       // Abonnement ophalen
       try {
         const token = await getIdToken(user)
-        const ab = await fetch('/api/mijn/abonnement', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const [ab, kres] = await Promise.all([
+          fetch('/api/mijn/abonnement', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/api/mijn/kaart-order', { headers: { Authorization: `Bearer ${token}` } }),
+        ])
         if (ab.ok) setAbonnement(await ab.json())
+        if (kres.ok) setKaartOrders((await kres.json()).orders ?? [])
       } catch {
-        // abonnement niet kritisch voor laden
+        // niet kritisch voor laden
       }
 
       setLaden(false)
@@ -123,6 +128,30 @@ export default function DashboardPagina() {
   async function uitloggen() {
     await signOut(auth)
     window.location.href = '/'
+  }
+
+  async function bijbestellen() {
+    setBijbestelBezig(true)
+    setBijbestelMelding('')
+    try {
+      const user = auth.currentUser
+      if (!user) return
+      const token = await getIdToken(user)
+      const res = await fetch('/api/mijn/kaart-order', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setBijbestelMelding('✅ Bijbestelling aangevraagd! We sturen je 10 nieuwe kaarten toe.')
+        const kres = await fetch('/api/mijn/kaart-order', { headers: { Authorization: `Bearer ${token}` } })
+        if (kres.ok) setKaartOrders((await kres.json()).orders ?? [])
+      } else {
+        setBijbestelMelding(data.fout ?? 'Er ging iets mis.')
+      }
+    } finally {
+      setBijbestelBezig(false)
+    }
   }
 
   if (laden) {
@@ -461,6 +490,57 @@ export default function DashboardPagina() {
             <h2 className="font-semibold text-gray-900">Uitbetalingen</h2>
           </div>
           <p className="text-sm text-gray-400">Uitbetalingsgeschiedenis wordt beschikbaar na koppeling met Mollie.</p>
+        </div>
+
+        {/* Kaarten */}
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">💳</span>
+            <h2 className="font-semibold text-gray-900">Mijn kaarten</h2>
+          </div>
+          {kaartOrders.length === 0 ? (
+            <p className="text-sm text-gray-400">Kaarten worden automatisch verstuurd zodra je account actief is.</p>
+          ) : (
+            <div className="space-y-2 mb-3">
+              {kaartOrders.map(order => {
+                const statusLabel: Record<string, string> = {
+                  aangevraagd: 'In behandeling',
+                  wacht_op_voorraad: 'In behandeling',
+                  in_productie: 'In productie',
+                  verzonden: 'Onderweg',
+                  geleverd: 'Geleverd',
+                }
+                const statusKleur: Record<string, string> = {
+                  aangevraagd: 'bg-amber-100 text-amber-700',
+                  wacht_op_voorraad: 'bg-amber-100 text-amber-700',
+                  in_productie: 'bg-blue-100 text-blue-700',
+                  verzonden: 'bg-purple-100 text-purple-700',
+                  geleverd: 'bg-emerald-100 text-emerald-700',
+                }
+                return (
+                  <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                    <div>
+                      <p className="text-sm text-gray-700">{order.aantal} kaarten{order.type === 'bijbestelling' ? ' (bijbestelling)' : ''}</p>
+                      {order.track_trace && <p className="text-xs text-gray-400 font-mono">{order.track_trace}</p>}
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusKleur[order.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                      {statusLabel[order.status] ?? order.status}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {bijbestelMelding && (
+            <p className={`text-sm mb-3 ${bijbestelMelding.startsWith('✅') ? 'text-emerald-600' : 'text-red-500'}`}>{bijbestelMelding}</p>
+          )}
+          <button
+            onClick={bijbestellen}
+            disabled={bijbestelBezig}
+            className="w-full py-2.5 border-2 border-gray-200 hover:border-brand-500 hover:text-brand-600 text-gray-600 text-sm font-medium rounded-xl transition-all disabled:opacity-50"
+          >
+            {bijbestelBezig ? 'Bezig...' : 'Bijbestellen (set van 10)'}
+          </button>
         </div>
 
         {/* Profiel bewerken */}
