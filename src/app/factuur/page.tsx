@@ -113,10 +113,10 @@ export default function FactuurPage() {
       <div className="factuur-wrap max-w-3xl mx-auto my-8 bg-white shadow-lg rounded-2xl overflow-hidden" style={{ minHeight: '297mm' }}>
 
         {/* Header */}
-        <div className="px-12 pt-10 pb-6 flex items-start justify-between" style={{ borderBottom: '3px solid #1557C0' }}>
+        <div className="px-12 pt-10 pb-6 flex items-start justify-between" style={{ borderBottom: '3px solid #A1105A' }}>
           <img src="/logotd.png" alt="TipDirect" style={{ height: 52, objectFit: 'contain' }} />
           <div className="text-right">
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#1557C0', letterSpacing: '-0.5px' }}>FACTUUR</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#A1105A', letterSpacing: '-0.5px' }}>FACTUUR</div>
             <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{factuur_nummer}</div>
           </div>
         </div>
@@ -156,7 +156,6 @@ export default function FactuurPage() {
           {[
             { label: 'Factuurnummer', waarde: factuur_nummer },
             { label: 'Factuurdatum', waarde: datumNl(factuur_datum) },
-            { label: 'Vervaldatum', waarde: datumNl(new Date(new Date(factuur_datum).getTime() + 14 * 86400000).toISOString()) },
           ].map(({ label, waarde }) => (
             <div key={label}>
               <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
@@ -169,7 +168,7 @@ export default function FactuurPage() {
         <div className="px-12 pt-8">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ background: '#1557C0', color: 'white' }}>
+              <tr style={{ background: '#A1105A', color: 'white' }}>
                 <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, borderRadius: '6px 0 0 6px' }}>Omschrijving</th>
                 <th style={{ textAlign: 'center', padding: '10px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>Periode</th>
                 <th style={{ textAlign: 'center', padding: '10px 14px', fontWeight: 600 }}>BTW</th>
@@ -199,20 +198,27 @@ export default function FactuurPage() {
                 <span style={{ fontVariantNumeric: 'tabular-nums' }}>€&nbsp;{euro(bedrag)}</span>
               </div>
             ))}
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', marginTop: 6, background: '#1557C0', color: 'white', borderRadius: 8, fontSize: 15, fontWeight: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', marginTop: 6, background: '#A1105A', color: 'white', borderRadius: 8, fontSize: 15, fontWeight: 700 }}>
               <span>Totaal incl. BTW</span>
               <span style={{ fontVariantNumeric: 'tabular-nums' }}>€&nbsp;{euro(bedragInclBtw)}</span>
             </div>
           </div>
         </div>
 
-        {/* Betaalinstructie */}
-        <div className="mx-12 mb-10 p-5 rounded-xl" style={{ background: '#f0f4ff', border: '1px solid #c7d6f7' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#1557C0', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Betaalinstructie</div>
-          <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
-            Gelieve dit bedrag over te maken vóór <strong>{datumNl(new Date(new Date(factuur_datum).getTime() + 14 * 86400000).toISOString())}</strong> op:<br />
-            <strong>IBAN: NL32 INGB 0111449049</strong> t.n.v. Miller Creative BV<br />
-            Onder vermelding van: <strong>{factuur_nummer}</strong>
+        {/* Betaling voldaan */}
+        <div className="mx-12 mb-10 p-5 rounded-xl" style={{ background: '#fdf5f9', border: '1px solid #e8c0d4', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+          <div style={{ width: 36, height: 36, background: '#A1105A', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'white', fontSize: 18, fontWeight: 700 }}>✓</div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#A1105A', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+              {isBedrijf ? 'Betaling voldaan' : 'Abonnementsbijdrage voldaan'}
+            </div>
+            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
+              {isBedrijf ? (
+                <>Betaling van <strong>€&nbsp;{euro(bedragInclBtw)}</strong> ontvangen op <strong>{datumNl(abonnement.actief_sinds)}</strong> via Mollie.<br />Dit document dient als betalingsbewijs. Geen verdere actie vereist.</>
+              ) : (
+                <>Abonnementsbijdrage van <strong>€&nbsp;{euro(bedragInclBtw)}</strong> voldaan via ontvangen fooien.<br />Dit document dient als betalingsbewijs. Geen verdere actie vereist.</>
+              )}
+            </div>
           </div>
         </div>
 
