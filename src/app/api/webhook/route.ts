@@ -160,7 +160,8 @@ export async function POST(req: NextRequest) {
         )
         abonnementNuActief = nuActief
 
-        const feeVerdeling = berekenFeeVerdeling(applicationFeeCenten)
+        // Commissiegrondslag is ex-BTW (individueel €25 is incl. 21% BTW)
+        const feeVerdeling = berekenFeeVerdeling(exBtw(applicationFeeCenten))
         if (partnerId && feeVerdeling.strictly_hospitality > 0) {
           await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
         }
@@ -235,7 +236,8 @@ export async function POST(req: NextRequest) {
       abonnementAccountType
     )
 
-    const feeVerdeling = bestemming === 'tipdirect' ? berekenFeeVerdeling(bedragCenten) : null
+    // Commissiegrondslag ex-BTW (individueel €25 is incl. 21% BTW)
+    const feeVerdeling = bestemming === 'tipdirect' ? berekenFeeVerdeling(exBtw(bedragCenten)) : null
     if (bestemming === 'tipdirect' && partnerId && feeVerdeling) {
       await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
     }
@@ -260,10 +262,21 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function berekenFeeVerdeling(bedragCenten: number) {
-  const mc = Math.round(bedragCenten * 0.425)
-  const sh = Math.round(bedragCenten * 0.425)
-  const marketing = bedragCenten - mc - sh
+const BTW_PERCENTAGE = 21
+
+// Zet incl.-BTW bedrag om naar ex-BTW
+function exBtw(inclBtwCenten: number): number {
+  return Math.round(inclBtwCenten * 100 / (100 + BTW_PERCENTAGE))
+}
+
+// Commissieverdeling altijd op ex-BTW grondslag.
+// Partner (SH) ontvangt GEEN geld rechtstreeks — alle abonnementsinkomsten gaan naar
+// Miller Creative. SH ziet zijn aandeel in het partner-dashboard en factureert MC.
+// Marketing-budget blijft eveneens bij Miller Creative.
+function berekenFeeVerdeling(bedragExBtwCenten: number) {
+  const sh = Math.round(bedragExBtwCenten * 0.425)        // SH-commissie (te factureren aan MC)
+  const marketing = Math.round(bedragExBtwCenten * 0.15)  // Marketing — blijft bij Miller Creative
+  const mc = bedragExBtwCenten - sh - marketing
   return { miller_creative: mc, strictly_hospitality: sh, marketing }
 }
 

@@ -22,30 +22,37 @@ export async function POST(req: NextRequest) {
     }
 
     const configSnap = await adminDb.collection('config').doc('fees').get()
-    const bedragCenten = configSnap.exists
-      ? (configSnap.data()?.abonnementsBedragBedrijf ?? 6000)
-      : 6000
+    const bedragExBtwCenten = configSnap.exists
+      ? (configSnap.data()?.abonnementsBedragBedrijf ?? 7500)
+      : 7500
+
+    const BTW_PERCENTAGE = 21
+    const btwCenten = Math.round(bedragExBtwCenten * BTW_PERCENTAGE / 100)
+    const bedragInclBtwCenten = bedragExBtwCenten + btwCenten
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
 
     const betaling = await mollie.payments.create({
       amount: {
         currency: 'EUR',
-        value: (bedragCenten / 100).toFixed(2),
+        value: (bedragInclBtwCenten / 100).toFixed(2),
       },
-      description: 'TipDirect bedrijfsabonnement',
+      description: `TipDirect bedrijfsabonnement (incl. ${BTW_PERCENTAGE}% BTW)`,
       redirectUrl: `${baseUrl}/dashboard/uitbater?activering=1`,
       webhookUrl: `${baseUrl}/api/webhook`,
       metadata: {
         oberId: uid,
-        bedragCenten: bedragCenten.toString(),
+        bedragCenten: bedragExBtwCenten.toString(),
       },
     })
 
     await adminDb.collection('betalingen').add({
       ober_id: uid,
       mollie_id: betaling.id,
-      bedrag: bedragCenten,
+      bedrag: bedragExBtwCenten,       // ex-BTW — basis voor abonnement en commissie
+      bedrag_incl_btw: bedragInclBtwCenten,
+      btw_bedrag: btwCenten,
+      btw_percentage: BTW_PERCENTAGE,
       betaling_type: 'abonnement',
       status: 'open',
       bestemming: null,

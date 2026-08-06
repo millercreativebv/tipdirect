@@ -223,7 +223,12 @@ export default function RegistreerPagina() {
   }
 
   if (stap === 'betaling') {
-    const bedragEuro = (abonnementsBedragBedrijf / 100).toFixed(2).replace('.', ',')
+    const BTW_PERCENTAGE = 21
+    const btwCenten = Math.round(abonnementsBedragBedrijf * BTW_PERCENTAGE / 100)
+    const totalCenten = abonnementsBedragBedrijf + btwCenten
+    const bedragExBtwEuro = (abonnementsBedragBedrijf / 100).toFixed(2).replace('.', ',')
+    const btwEuro = (btwCenten / 100).toFixed(2).replace('.', ',')
+    const totalEuro = (totalCenten / 100).toFixed(2).replace('.', ',')
     return (
       <div className="min-h-screen bg-gradient-to-b from-brand-50 to-white flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
@@ -245,10 +250,18 @@ export default function RegistreerPagina() {
 
             <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Bedrijfsabonnement</span>
-                <span className="font-semibold text-gray-900">€{bedragEuro}/jaar</span>
+                <span className="text-gray-500">Bedrijfsabonnement (ex. BTW)</span>
+                <span className="text-gray-700">€{bedragExBtwEuro}/jaar</span>
               </div>
               <div className="flex justify-between text-sm">
+                <span className="text-gray-500">BTW {BTW_PERCENTAGE}%</span>
+                <span className="text-gray-700">€{btwEuro}</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-gray-200 pt-2 mt-1">
+                <span className="font-semibold text-gray-900">Totaal (incl. BTW)</span>
+                <span className="font-semibold text-gray-900">€{totalEuro}</span>
+              </div>
+              <div className="flex justify-between text-sm pt-1">
                 <span className="text-gray-500">Team-QR codes</span>
                 <span className="text-gray-700">Onbeperkt</span>
               </div>
@@ -269,7 +282,7 @@ export default function RegistreerPagina() {
               disabled={betaalBezig}
               className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl transition-all"
             >
-              {betaalBezig ? 'Doorsturen naar betaling...' : `Betaal en activeer — €${bedragEuro}`}
+              {betaalBezig ? 'Doorsturen naar betaling...' : `Betaal en activeer — €${totalEuro}`}
             </button>
 
             <p className="text-center text-xs text-gray-400 mt-3">
