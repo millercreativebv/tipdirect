@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
 
   await adminDb.collection('obers').doc(oberId).update({
     abonnement_actief: true,
+    actief: true,
   })
 
   return NextResponse.json({ ok: true })

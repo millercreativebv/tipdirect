@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         value: (bedragCenten / 100).toFixed(2),
       },
       description: 'TipDirect bedrijfsabonnement',
-      redirectUrl: `${baseUrl}/dashboard/uitbater`,
+      redirectUrl: `${baseUrl}/dashboard/uitbater?activering=1`,
       webhookUrl: `${baseUrl}/api/webhook`,
       metadata: {
         oberId: uid,

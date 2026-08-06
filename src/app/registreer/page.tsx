@@ -7,7 +7,7 @@ import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firesto
 import Link from 'next/link'
 import Image from 'next/image'
 
-type Stap = 'keuze' | 'account' | 'profiel' | 'klaar'
+type Stap = 'keuze' | 'account' | 'profiel' | 'betaling' | 'klaar'
 type AccountType = 'individueel' | 'bedrijf'
 
 const LANDEN = ['België', 'Nederland', 'Luxemburg', 'Duitsland', 'Frankrijk', 'Andere']
@@ -21,6 +21,8 @@ export default function RegistreerPagina() {
   const [partnerId, setPartnerId] = useState<string | null>(null)
   const [laden, setLaden] = useState(false)
   const [fout, setFout] = useState('')
+  const [abonnementsBedragBedrijf, setAbonnementsBedragBedrijf] = useState(7500)
+  const [betaalBezig, setBetaalBezig] = useState(false)
 
   // Individueel
   const [naam, setNaam] = useState('')
@@ -45,6 +47,11 @@ export default function RegistreerPagina() {
     const params = new URLSearchParams(window.location.search)
     const partner = params.get('partner')
     if (partner) setPartnerId(partner)
+
+    fetch('/api/admin/config')
+      .then(r => r.json())
+      .then(d => { if (d.abonnementsBedragBedrijf) setAbonnementsBedragBedrijf(d.abonnementsBedragBedrijf) })
+      .catch(() => {})
   }, [])
 
   function keuzeGemaakt(type: AccountType) {
@@ -164,34 +171,104 @@ export default function RegistreerPagina() {
         })
       }
 
-      setStap('klaar')
+      setStap(accountType === 'bedrijf' ? 'betaling' : 'klaar')
     } catch {
       setFout('Opslaan mislukt. Probeer het opnieuw.')
     }
     setLaden(false)
   }
 
+  async function naarBetaling() {
+    setBetaalBezig(true)
+    try {
+      const { getIdToken } = await import('firebase/auth')
+      const user = auth.currentUser
+      if (!user) return
+      const token = await getIdToken(user)
+      const res = await fetch('/api/betaling/abonnement', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.fout)
+      window.location.href = data.betaalUrl
+    } catch {
+      setBetaalBezig(false)
+      setFout('Betaling starten mislukt. Probeer het opnieuw.')
+    }
+  }
+
+  if (stap === 'betaling') {
+    const bedragEuro = (abonnementsBedragBedrijf / 100).toFixed(2).replace('.', ',')
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-brand-50 to-white flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <Link href="/">
+              <Image src="/logotd.png" alt="TipDirect" width={200} height={80} className="h-14 w-auto mx-auto mb-3" />
+            </Link>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🏪</span>
+              </div>
+              <h1 className="text-xl font-bold text-gray-900">Account aangemaakt!</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                Activeer je account om te starten met TipDirect.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4 mb-6 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Bedrijfsabonnement</span>
+                <span className="font-semibold text-gray-900">€{bedragEuro}/jaar</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Team-QR codes</span>
+                <span className="text-gray-700">Onbeperkt</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Fooien per medewerker</span>
+                <span className="text-gray-700">Direct uitbetaald</span>
+              </div>
+            </div>
+
+            {fout && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                <p className="text-red-600 text-sm font-medium">{fout}</p>
+              </div>
+            )}
+
+            <button
+              onClick={naarBetaling}
+              disabled={betaalBezig}
+              className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl transition-all"
+            >
+              {betaalBezig ? 'Doorsturen naar betaling...' : `Betaal en activeer — €${bedragEuro}`}
+            </button>
+
+            <p className="text-center text-xs text-gray-400 mt-3">
+              Veilige betaling via Mollie · Je wordt direct doorgestuurd
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (stap === 'klaar') {
-    const slug = (accountType === 'individueel' ? gebruikersnaam : bedrijfsnaam)
-      .toLowerCase().replace(/[^a-z0-9]/g, '')
+    const slug = gebruikersnaam.toLowerCase().replace(/[^a-z0-9]/g, '')
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-brand-50 to-white flex items-center justify-center p-4">
         <div className="text-center max-w-sm">
-          <div className="text-5xl mb-4">{accountType === 'bedrijf' ? '🏪' : '🎉'}</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            {accountType === 'bedrijf' ? 'Zakelijk account aangemaakt!' : 'Je bent klaar!'}
-          </h1>
-          <p className="text-gray-500 mb-6">
-            {accountType === 'bedrijf'
-              ? 'Voeg nu je eerste medewerkers toe via het dashboard.'
-              : 'Je persoonlijke betaalpagina is live op:'}
-          </p>
-          {accountType === 'individueel' && (
-            <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 mb-6 font-mono text-brand-700 break-all">
-              tipdirect.be/{slug}
-            </div>
-          )}
+          <div className="text-5xl mb-4">🎉</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Je bent klaar!</h1>
+          <p className="text-gray-500 mb-6">Je persoonlijke betaalpagina is live op:</p>
+          <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 mb-6 font-mono text-brand-700 break-all">
+            tipdirect.be/{slug}
+          </div>
           <Link
             href="/dashboard"
             className="block w-full py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all text-center"
@@ -219,18 +296,25 @@ export default function RegistreerPagina() {
 
         {stap !== 'keuze' && (
           <div className="flex items-center justify-center gap-2 mb-8">
-            {['account', 'profiel'].map((s, i) => (
-              <div key={s} className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  stap === s ? 'bg-brand-500 text-white' :
-                  (['profiel', 'klaar'].includes(stap) && i === 0) ? 'bg-brand-400 text-white' :
-                  'bg-gray-200 text-gray-400'
-                }`}>
-                  {(['profiel', 'klaar'].includes(stap) && i === 0) ? '✓' : i + 1}
+            {(accountType === 'bedrijf' ? ['account', 'profiel', 'betaling'] : ['account', 'profiel']).map((s, i) => {
+              const stappen = accountType === 'bedrijf' ? ['account', 'profiel', 'betaling', 'klaar'] : ['account', 'profiel', 'klaar']
+              const stapIndex = stappen.indexOf(stap)
+              const thisIndex = i
+              const voorbij = stapIndex > thisIndex
+              const huidig = stap === s
+              return (
+                <div key={s} className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    voorbij ? 'bg-brand-400 text-white' :
+                    huidig ? 'bg-brand-500 text-white' :
+                    'bg-gray-200 text-gray-400'
+                  }`}>
+                    {voorbij ? '✓' : i + 1}
+                  </div>
+                  {i < (accountType === 'bedrijf' ? 2 : 1) && <div className="w-12 h-0.5 bg-gray-200" />}
                 </div>
-                {i === 0 && <div className="w-12 h-0.5 bg-gray-200" />}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 

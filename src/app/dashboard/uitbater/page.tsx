@@ -28,6 +28,15 @@ export default function UitbaterDashboard() {
   const [abonnement, setAbonnement] = useState<AbonnementData | null>(null)
   const [laden, setLaden] = useState(true)
   const [abonnementLaden, setAbonnementLaden] = useState(false)
+  const [activeringsmelding, setActiveringsmelding] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('activering') === '1') {
+      setActiveringsmelding(true)
+      window.history.replaceState({}, '', '/dashboard/uitbater')
+    }
+  }, [])
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -151,6 +160,20 @@ export default function UitbaterDashboard() {
       </div>
 
       <div className="max-w-2xl mx-auto p-4 space-y-4">
+
+        {/* Bevestiging na betaling */}
+        {activeringsmelding && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+            <span className="text-xl flex-shrink-0">✅</span>
+            <div>
+              <p className="font-semibold text-emerald-900">Betaling ontvangen!</p>
+              <p className="text-sm text-emerald-700 mt-0.5">
+                Je account wordt geactiveerd zodra de betaling verwerkt is (normaal binnen enkele minuten).
+                Je kunt nu alvast medewerkers toevoegen.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Team statistieken */}
         <div className="grid grid-cols-3 gap-3">

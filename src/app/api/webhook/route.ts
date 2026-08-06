@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
         actief_sinds: new Date().toISOString(),
       }, { merge: true })
 
-      await adminDb.collection('obers').doc(oberId).update({ abonnement_actief: true })
+      await adminDb.collection('obers').doc(oberId).update({ abonnement_actief: true, actief: true })
 
       const feeVerdeling = berekenFeeVerdeling(bedragCenten)
       if (partnerId) {
