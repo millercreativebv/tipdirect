@@ -287,10 +287,10 @@ function berekenFeeVerdeling(bedragExBtwCenten: number) {
 }
 
 // Koppelt automatisch kaartcodes + maakt een kaart_order aan bij activering.
-// accountType bepaalt hoeveel codes: 'bedrijf' → 10, anders → 2
+// accountType bepaalt hoeveel codes: 'bedrijf' → 5, anders → 2
 async function wijsKaartCodesAutoToe(oberId: string, accountType: string) {
   try {
-    const aantal = accountType === 'bedrijf' ? 10 : 2
+    const aantal = accountType === 'bedrijf' ? 5 : 2
 
     // Check of er al een eerste toewijzing is geweest
     const bestaandSnap = await adminDb

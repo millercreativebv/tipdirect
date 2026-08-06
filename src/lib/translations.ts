@@ -57,7 +57,7 @@ export const vertalingen = {
         periode: 'eerste jaar, ex. BTW',
         badge: 'Introductie tarief',
         features: [
-          '10 persoonlijke QR-passen inbegrepen',
+          '5 persoonlijke QR-passen inbegrepen',
           'Uw bedrijfslogo op elke persoonlijke QR-pas',
           'Dashboard voor meerdere accounts',
           'Geen extra servicekosten',
@@ -160,7 +160,7 @@ export const vertalingen = {
         badge: 'Most popular',
         features: [
           'Business payment page with your branding',
-          '10 QR passes included',
+          '5 QR passes included',
           'Unlimited employee management',
           'Personal QR code per employee',
           'No additional service fees',
@@ -370,7 +370,7 @@ export const vertalingen = {
         badge: 'Beliebteste Wahl',
         features: [
           'Geschäftliche Zahlungsseite mit Ihrem Branding',
-          '10 QR-Pässe inklusive',
+          '5 QR-Pässe inklusive',
           'Unbegrenzte Mitarbeiterverwaltung',
           'Persönlicher QR-Code pro Mitarbeiter',
           'Keine zusätzlichen Servicegebühren',
