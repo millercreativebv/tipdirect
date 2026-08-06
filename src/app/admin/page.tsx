@@ -82,6 +82,7 @@ type KaartOrder = {
   aantal: number
   type: 'inclusief' | 'bijbestelling' | 'toewijzing'
   status: 'aangevraagd' | 'wacht_op_voorraad' | 'in_productie' | 'verzonden' | 'geleverd'
+  set_id?: string | null
   codes: string[]
   track_trace: string | null
   aangemaakt_op: string
@@ -133,9 +134,10 @@ export default function AdminDashboard() {
   const [kaartOrders, setKaartOrders] = useState<KaartOrder[]>([])
   const [kaartOrdersLaden, setKaartOrdersLaden] = useState(false)
   const [kaartOrderFilter, setKaartOrderFilter] = useState<string>('alle')
-  const [kaartVoorraad, setKaartVoorraad] = useState<{ totaal: number; vrij: number; toegewezen: number } | null>(null)
-  const [kaartCodesVrij, setKaartCodesVrij] = useState<{ id: string; serie?: string; aangemaakt_op?: string }[]>([])
-  const [kaartGenereerAantal, setKaartGenereerAantal] = useState('50')
+  const [kaartVoorraad, setKaartVoorraad] = useState<{ vrij_bedrijf: number; vrij_individueel: number } | null>(null)
+  const [kaartSets, setKaartSets] = useState<{ id: string; type: string; set_nummer: number; codes: string[]; urls: string[]; status: string; aangemaakt_op: string }[]>([])
+  const [kaartGenereerAantal, setKaartGenereerAantal] = useState('100')
+  const [kaartGenereerType, setKaartGenereerType] = useState<'bedrijf' | 'individueel'>('bedrijf')
   const [kaartGenereerBezig, setKaartGenereerBezig] = useState(false)
   const [kaartMelding, setKaartMelding] = useState('')
   const [kaartOrderBezig, setKaartOrderBezig] = useState<string | null>(null)
@@ -305,10 +307,8 @@ export default function AdminDashboard() {
     if (ordersRes.ok) setKaartOrders((await ordersRes.json()).orders)
     if (voorraadRes.ok) {
       const d = await voorraadRes.json()
-      setKaartVoorraad({ totaal: d.totaal, vrij: d.vrij, toegewezen: d.toegewezen })
-      const vrij = (d.codes as { id: string; ober_id: string | null; serie?: string; aangemaakt_op?: string }[])
-        .filter(c => !c.ober_id)
-      setKaartCodesVrij(vrij)
+      setKaartVoorraad({ vrij_bedrijf: d.vrij_bedrijf, vrij_individueel: d.vrij_individueel })
+      setKaartSets(d.sets ?? [])
     }
     setKaartOrdersLaden(false)
   }
@@ -323,11 +323,11 @@ export default function AdminDashboard() {
     const res = await fetch('/api/admin/kaart-codes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ aantal: parseInt(kaartGenereerAantal) }),
+      body: JSON.stringify({ aantal: parseInt(kaartGenereerAantal), type: kaartGenereerType }),
     })
     const data = await res.json()
     if (res.ok) {
-      setKaartMelding(`✅ ${data.aangemaakt} nieuwe codes aangemaakt (serie: ${data.serie})`)
+      setKaartMelding(`✅ ${data.aangemaakt} sets aangemaakt (${kaartGenereerType})`)
       await laadKaartOrders()
     } else {
       setKaartMelding(`Fout: ${data.fout}`)
@@ -336,29 +336,36 @@ export default function AdminDashboard() {
   }
 
   async function downloadVrijeCodes() {
-    setKaartMelding('Codes ophalen...')
-    const res = await fetch('/api/admin/kaart-codes?filter=vrij&limit=500', {
+    setKaartMelding('Sets ophalen...')
+    const res = await fetch('/api/admin/kaart-codes?filter=vrij', {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) { setKaartMelding('Ophalen mislukt.'); return }
     const data = await res.json()
-    const codes: { id: string; serie?: string }[] = data.codes
-    if (codes.length === 0) { setKaartMelding('Geen vrije codes gevonden.'); return }
+    const sets: { id: string; type: string; codes: string[]; urls: string[] }[] = data.sets
+    if (!sets.length) { setKaartMelding('Geen vrije sets gevonden.'); return }
 
-    const baseUrl = 'https://tipdirect.be'
+    // Maximaal aantal codes per set bepalen (voor breedte CSV)
+    const maxCodes = Math.max(...sets.map(s => s.codes.length))
+    const codeHeaders = Array.from({ length: maxCodes }, (_, i) => [`Code ${i + 1}`, `URL ${i + 1}`]).flat()
+
     const rijen: string[][] = [
-      ['Code', 'URL (QR + NFC)', 'Serie'],
-      ...codes.map(c => [c.id, `${baseUrl}/c/${c.id}`, c.serie ?? '']),
+      ['Set-ID', 'Type', ...codeHeaders],
+      ...sets.map(s => [
+        s.id,
+        s.type,
+        ...s.codes.flatMap((c, i) => [c, s.urls[i] ?? `https://tipdirect.be/c/${c}`]),
+      ]),
     ]
-    const csv = rijen.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\r\n')
+    const csv = rijen.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `tipdirect-codes-vrij-${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `tipdirect-sets-fabrikant-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    setKaartMelding(`✅ ${codes.length} vrije codes gedownload.`)
+    setKaartMelding(`✅ ${sets.length} sets gedownload voor fabrikant.`)
   }
 
   async function updateKaartOrderStatus(orderId: string, status: string) {
@@ -1013,49 +1020,51 @@ export default function AdminDashboard() {
           <>
             {/* Voorraad */}
             <div className="bg-white rounded-xl shadow-sm p-5">
-              <h2 className="font-bold text-gray-900 mb-4">Voorraad kaartcodes</h2>
+              <h2 className="font-bold text-gray-900 mb-4">Voorraad sets</h2>
               {kaartVoorraad ? (
-                <div className="grid grid-cols-3 gap-3 mb-5">
-                  {[
-                    { label: 'Totaal', waarde: kaartVoorraad.totaal, kleur: 'text-gray-800' },
-                    { label: 'Vrij', waarde: kaartVoorraad.vrij, kleur: 'text-emerald-600' },
-                    { label: 'Toegewezen', waarde: kaartVoorraad.toegewezen, kleur: 'text-brand-600' },
-                  ].map(s => (
-                    <div key={s.label} className="bg-gray-50 rounded-xl p-3 text-center">
-                      <p className={`text-2xl font-bold ${s.kleur}`}>{s.waarde}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-2xl font-bold text-emerald-600">{kaartVoorraad.vrij_bedrijf}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Bedrijf-sets vrij <span className="text-gray-400">(5 kaarten/set)</span></p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-2xl font-bold text-emerald-600">{kaartVoorraad.vrij_individueel}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Individueel-sets vrij <span className="text-gray-400">(2 kaarten/set)</span></p>
+                  </div>
                 </div>
               ) : (
-                <div className="h-12 flex items-center justify-center">
+                <div className="h-12 flex items-center justify-center mb-5">
                   <div className="w-5 h-5 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
 
-              {/* Vrije codes tabel */}
-              {kaartCodesVrij.length > 0 && (
+              {/* Sets tabel */}
+              {kaartSets.length > 0 && (
                 <div className="mb-5 border border-gray-100 rounded-xl overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-600">Vrije codes in voorraad ({kaartCodesVrij.length})</span>
+                  <div className="bg-gray-50 px-4 py-2">
+                    <span className="text-xs font-semibold text-gray-600">Sets in voorraad ({kaartSets.length})</span>
                   </div>
-                  <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                  <div className="overflow-x-auto max-h-56 overflow-y-auto">
                     <table className="w-full text-xs">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
-                          <th className="px-4 py-2 text-left font-medium text-gray-500">Code</th>
-                          <th className="px-4 py-2 text-left font-medium text-gray-500">URL</th>
-                          <th className="px-4 py-2 text-left font-medium text-gray-500">Serie</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500">Set-ID</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500">Type</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500">Codes</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500">Status</th>
                           <th className="px-4 py-2 text-left font-medium text-gray-500">Aangemaakt</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
-                        {kaartCodesVrij.map(c => (
-                          <tr key={c.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 font-mono font-bold text-brand-700">{c.id}</td>
-                            <td className="px-4 py-2 text-gray-500">tipdirect.be/c/{c.id}</td>
-                            <td className="px-4 py-2 text-gray-500">{c.serie ?? '—'}</td>
-                            <td className="px-4 py-2 text-gray-400">{c.aangemaakt_op ? new Date(c.aangemaakt_op).toLocaleDateString('nl-NL') : '—'}</td>
+                        {kaartSets.map(s => (
+                          <tr key={s.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 font-mono font-bold text-brand-700">{s.id}</td>
+                            <td className="px-4 py-2 text-gray-600">{s.type}</td>
+                            <td className="px-4 py-2 font-mono text-gray-400">{s.codes.join(' · ')}</td>
+                            <td className="px-4 py-2">
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${s.status === 'vrij' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{s.status}</span>
+                            </td>
+                            <td className="px-4 py-2 text-gray-400">{new Date(s.aangemaakt_op).toLocaleDateString('nl-NL')}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1064,9 +1073,22 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <div className="flex gap-3 items-end">
-                <div className="flex-1">
-                  <label className="block text-xs text-gray-500 mb-1">Aantal te genereren</label>
+              <div className="flex gap-3 items-end flex-wrap">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Type</label>
+                  <div className="flex rounded-xl overflow-hidden border-2 border-gray-200">
+                    {(['bedrijf', 'individueel'] as const).map(t => (
+                      <button key={t} type="button"
+                        onClick={() => setKaartGenereerType(t)}
+                        className={`px-4 py-2.5 text-sm font-medium transition-all ${kaartGenereerType === t ? 'bg-brand-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        {t === 'bedrijf' ? 'Bedrijf (5/set)' : 'Individueel (2/set)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-24">
+                  <label className="block text-xs text-gray-500 mb-1">Aantal sets</label>
                   <input
                     type="number" min="1" max="500"
                     value={kaartGenereerAantal}
@@ -1079,12 +1101,11 @@ export default function AdminDashboard() {
                   disabled={kaartGenereerBezig}
                   className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all text-sm"
                 >
-                  {kaartGenereerBezig ? 'Bezig...' : 'Genereer codes'}
+                  {kaartGenereerBezig ? 'Bezig...' : 'Genereer sets'}
                 </button>
                 <button
                   onClick={downloadVrijeCodes}
                   className="px-5 py-2.5 bg-white border-2 border-gray-200 hover:border-brand-400 text-gray-700 font-bold rounded-xl transition-all text-sm"
-                  title="Download alle vrije codes als CSV voor de fabrikant"
                 >
                   ↓ Download voor fabrikant
                 </button>
@@ -1102,7 +1123,7 @@ export default function AdminDashboard() {
                       onClick={() => { setKaartOrderFilter(f); laadKaartOrders(f) }}
                       className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${kaartOrderFilter === f ? 'bg-brand-500 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
                     >
-                      {f === 'alle' ? 'Alle' : f === 'wacht_op_voorraad' ? 'Wacht op voorraad' : f.charAt(0).toUpperCase() + f.slice(1).replace('_', ' ')}
+                      {f === 'alle' ? 'Alle' : f === 'wacht_op_voorraad' ? 'Wacht op voorraad' : f.charAt(0).toUpperCase() + f.slice(1).replace(/_/g, ' ')}
                     </button>
                   ))}
                 </div>
@@ -1128,16 +1149,23 @@ export default function AdminDashboard() {
                       <div key={order.id} className="p-4 space-y-3">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-gray-900">{order.naam}</p>
-                            <p className="text-xs text-gray-400">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-gray-900">{order.naam}</p>
+                              {order.set_id && (
+                                <span className="font-mono text-sm font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">
+                                  Stuur set {order.set_id}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-0.5">
                               {order.type === 'inclusief' ? '🎁 Inclusief' : order.type === 'bijbestelling' ? '🔄 Bijbestelling' : '🔗 Toewijzing'} · {order.aantal} kaarten · {new Date(order.aangemaakt_op).toLocaleDateString('nl-NL')}
                             </p>
-                            {order.codes.length > 0 && (
+                            {order.codes?.length > 0 && (
                               <p className="text-xs font-mono text-gray-400 mt-0.5">{order.codes.slice(0, 3).join(', ')}{order.codes.length > 3 ? ` +${order.codes.length - 3}` : ''}</p>
                             )}
                           </div>
                           <span className={`text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 ${statusKleur[order.status] ?? 'bg-gray-100 text-gray-500'}`}>
-                            {order.status.replace('_', ' ')}
+                            {order.status.replace(/_/g, ' ')}
                           </span>
                         </div>
 
@@ -1172,7 +1200,7 @@ export default function AdminDashboard() {
                               Geleverd
                             </button>
                           )}
-                          {order.codes.length > 0 && (
+                          {order.codes?.length > 0 && (
                             <button onClick={() => downloadKaartCsv(order)}
                               className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs font-medium rounded-lg hover:border-brand-400 hover:text-brand-600 transition-all">
                               ↓ CSV voor drukker/NFC

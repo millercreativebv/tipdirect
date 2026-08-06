@@ -287,19 +287,16 @@ function berekenFeeVerdeling(bedragExBtwCenten: number) {
 }
 
 // Koppelt automatisch kaartcodes + maakt een kaart_order aan bij activering.
-// accountType bepaalt hoeveel codes: 'bedrijf' → 5, anders → 2
+// Pakt de eerstvolgende vrije set passend bij het account-type en maakt een kaart_order aan.
 async function wijsKaartCodesAutoToe(oberId: string, accountType: string) {
   try {
-    const aantal = accountType === 'bedrijf' ? 5 : 2
-
-    // Check of er al een eerste toewijzing is geweest
     const bestaandSnap = await adminDb
       .collection('kaart_orders')
       .where('ober_id', '==', oberId)
       .where('type', '==', 'inclusief')
       .limit(1)
       .get()
-    if (!bestaandSnap.empty) return // al toegewezen
+    if (!bestaandSnap.empty) return
 
     const oberSnap = await adminDb.collection('obers').doc(oberId).get()
     if (!oberSnap.exists) return
@@ -307,34 +304,46 @@ async function wijsKaartCodesAutoToe(oberId: string, accountType: string) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://tipdirect.be'
     const redirectUrl = `${baseUrl}/${ober.gebruikersnaam}`
-
-    const vrijSnap = await adminDb
-      .collection('kaart_codes')
-      .where('ober_id', '==', null)
-      .limit(aantal)
-      .get()
-
+    const setType = accountType === 'bedrijf' ? 'bedrijf' : 'individueel'
     const nu = new Date().toISOString()
 
-    // Maak order aan (ook als er onvoldoende codes zijn — admin handelt bij)
+    const setSnap = await adminDb
+      .collection('kaart_sets')
+      .where('status_type', '==', `${setType}_vrij`)
+      .limit(1)
+      .get()
+
+    const heeftSet = !setSnap.empty
+    const setDoc = heeftSet ? setSnap.docs[0] : null
+    const setData = setDoc ? setDoc.data() : null
+    const codes: string[] = setData?.codes ?? []
+
     const orderRef = adminDb.collection('kaart_orders').doc()
     await orderRef.set({
       ober_id: oberId,
       naam: ober.naam ?? '',
       account_type: accountType,
-      aantal,
+      aantal: heeftSet ? codes.length : (setType === 'bedrijf' ? 5 : 2),
       type: 'inclusief',
-      status: vrijSnap.size >= aantal ? 'aangevraagd' : 'wacht_op_voorraad',
-      codes: vrijSnap.docs.map(d => d.id),
+      status: heeftSet ? 'aangevraagd' : 'wacht_op_voorraad',
+      set_id: setDoc?.id ?? null,
+      codes,
       track_trace: null,
       aangemaakt_op: nu,
       verzonden_op: null,
     })
 
-    if (vrijSnap.size > 0) {
+    if (heeftSet && setDoc && setData) {
       const batch = adminDb.batch()
-      for (const doc of vrijSnap.docs) {
-        batch.update(doc.ref, {
+      batch.update(setDoc.ref, {
+        status: 'toegewezen',
+        status_type: `${setType}_toegewezen`,
+        toegewezen_op: nu,
+        ober_id: oberId,
+        kaart_order_id: orderRef.id,
+      })
+      for (const code of codes) {
+        batch.update(adminDb.collection('kaart_codes').doc(code), {
           ober_id: oberId,
           naam: ober.naam ?? null,
           gebruikersnaam: ober.gebruikersnaam ?? null,
@@ -346,7 +355,6 @@ async function wijsKaartCodesAutoToe(oberId: string, accountType: string) {
       await batch.commit()
     }
   } catch (err) {
-    // Niet-kritiek: log maar blokkeer de betaling-flow niet
     console.error('Kaartcodes auto-toewijzen mislukt:', err)
   }
 }
