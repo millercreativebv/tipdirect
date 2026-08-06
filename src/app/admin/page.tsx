@@ -106,6 +106,8 @@ export default function AdminDashboard() {
   const [uitbPartnerMelding, setUitbPartnerMelding] = useState('')
   const [activeerBezig, setActiveerBezig] = useState<string | null>(null)
   const [openDetail, setOpenDetail] = useState<string | null>(null)
+  const [verwijderBezig, setVerwijderBezig] = useState<string | null>(null)
+  const [verwijderBevestig, setVerwijderBevestig] = useState<string | null>(null)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -236,6 +238,21 @@ export default function AdminDashboard() {
       ))
     }
     setActiveerBezig(null)
+  }
+
+  async function verwijderAccount(oberId: string) {
+    setVerwijderBezig(oberId)
+    const res = await fetch('/api/admin/verwijder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ oberId }),
+    })
+    if (res.ok) {
+      setAbonnementen(prev => prev.filter(a => a.id !== oberId))
+      setOpenDetail(null)
+    }
+    setVerwijderBevestig(null)
+    setVerwijderBezig(null)
   }
 
   function exporteerCsv() {
@@ -511,15 +528,43 @@ export default function AdminDashboard() {
                           </div>
 
                           {/* Activeer knop voor pending */}
-                          {a.status === 'pending' && (
-                            <button
-                              onClick={() => activeerAccount(a.id)}
-                              disabled={activeerBezig === a.id}
-                              className="mt-4 px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-all"
-                            >
-                              {activeerBezig === a.id ? 'Bezig...' : 'Account activeren'}
-                            </button>
-                          )}
+                          <div className="mt-4 flex items-center gap-3 flex-wrap">
+                            {a.status === 'pending' && (
+                              <button
+                                onClick={() => activeerAccount(a.id)}
+                                disabled={activeerBezig === a.id}
+                                className="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-all"
+                              >
+                                {activeerBezig === a.id ? 'Bezig...' : 'Account activeren'}
+                              </button>
+                            )}
+
+                            {verwijderBevestig === a.id ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-red-600 font-medium">Zeker weten?</span>
+                                <button
+                                  onClick={() => verwijderAccount(a.id)}
+                                  disabled={verwijderBezig === a.id}
+                                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-200 text-white text-sm font-bold rounded-xl transition-all"
+                                >
+                                  {verwijderBezig === a.id ? 'Verwijderen...' : 'Ja, verwijderen'}
+                                </button>
+                                <button
+                                  onClick={() => setVerwijderBevestig(null)}
+                                  className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
+                                >
+                                  Annuleren
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setVerwijderBevestig(a.id)}
+                                className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium rounded-xl transition-all"
+                              >
+                                Account verwijderen
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
