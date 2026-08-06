@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { auth, db, storage, type Ober } from '@/lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore'
@@ -11,7 +11,7 @@ import { useSearchParams } from 'next/navigation'
 
 const LANDEN = ['België', 'Nederland', 'Luxemburg', 'Duitsland', 'Frankrijk', 'Andere']
 
-export default function ProfielPagina() {
+function ProfielInhoud() {
   const [ober, setOber] = useState<Ober | null>(null)
   const [laden, setLaden] = useState(true)
   const [opslaan, setOpslaan] = useState(false)
@@ -562,5 +562,17 @@ export default function ProfielPagina() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function ProfielPagina() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <ProfielInhoud />
+    </Suspense>
   )
 }
