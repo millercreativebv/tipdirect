@@ -134,6 +134,7 @@ export default function AdminDashboard() {
   const [kaartOrdersLaden, setKaartOrdersLaden] = useState(false)
   const [kaartOrderFilter, setKaartOrderFilter] = useState<string>('alle')
   const [kaartVoorraad, setKaartVoorraad] = useState<{ totaal: number; vrij: number; toegewezen: number } | null>(null)
+  const [kaartCodesVrij, setKaartCodesVrij] = useState<{ id: string; serie?: string; aangemaakt_op?: string }[]>([])
   const [kaartGenereerAantal, setKaartGenereerAantal] = useState('50')
   const [kaartGenereerBezig, setKaartGenereerBezig] = useState(false)
   const [kaartMelding, setKaartMelding] = useState('')
@@ -305,6 +306,9 @@ export default function AdminDashboard() {
     if (voorraadRes.ok) {
       const d = await voorraadRes.json()
       setKaartVoorraad({ totaal: d.totaal, vrij: d.vrij, toegewezen: d.toegewezen })
+      const vrij = (d.codes as { id: string; ober_id: string | null; serie?: string; aangemaakt_op?: string }[])
+        .filter(c => !c.ober_id)
+      setKaartCodesVrij(vrij)
     }
     setKaartOrdersLaden(false)
   }
@@ -329,6 +333,32 @@ export default function AdminDashboard() {
       setKaartMelding(`Fout: ${data.fout}`)
     }
     setKaartGenereerBezig(false)
+  }
+
+  async function downloadVrijeCodes() {
+    setKaartMelding('Codes ophalen...')
+    const res = await fetch('/api/admin/kaart-codes?filter=vrij&limit=500', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) { setKaartMelding('Ophalen mislukt.'); return }
+    const data = await res.json()
+    const codes: { id: string; serie?: string }[] = data.codes
+    if (codes.length === 0) { setKaartMelding('Geen vrije codes gevonden.'); return }
+
+    const baseUrl = 'https://tipdirect.be'
+    const rijen: string[][] = [
+      ['Code', 'URL (QR + NFC)', 'Serie'],
+      ...codes.map(c => [c.id, `${baseUrl}/c/${c.id}`, c.serie ?? '']),
+    ]
+    const csv = rijen.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `tipdirect-codes-vrij-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    setKaartMelding(`✅ ${codes.length} vrije codes gedownload.`)
   }
 
   async function updateKaartOrderStatus(orderId: string, status: string) {
@@ -1002,6 +1032,38 @@ export default function AdminDashboard() {
                   <div className="w-5 h-5 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
+
+              {/* Vrije codes tabel */}
+              {kaartCodesVrij.length > 0 && (
+                <div className="mb-5 border border-gray-100 rounded-xl overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-600">Vrije codes in voorraad ({kaartCodesVrij.length})</span>
+                  </div>
+                  <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500">Code</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500">URL</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500">Serie</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500">Aangemaakt</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {kaartCodesVrij.map(c => (
+                          <tr key={c.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 font-mono font-bold text-brand-700">{c.id}</td>
+                            <td className="px-4 py-2 text-gray-500">tipdirect.be/c/{c.id}</td>
+                            <td className="px-4 py-2 text-gray-500">{c.serie ?? '—'}</td>
+                            <td className="px-4 py-2 text-gray-400">{c.aangemaakt_op ? new Date(c.aangemaakt_op).toLocaleDateString('nl-NL') : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3 items-end">
                 <div className="flex-1">
                   <label className="block text-xs text-gray-500 mb-1">Aantal te genereren</label>
@@ -1018,6 +1080,13 @@ export default function AdminDashboard() {
                   className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all text-sm"
                 >
                   {kaartGenereerBezig ? 'Bezig...' : 'Genereer codes'}
+                </button>
+                <button
+                  onClick={downloadVrijeCodes}
+                  className="px-5 py-2.5 bg-white border-2 border-gray-200 hover:border-brand-400 text-gray-700 font-bold rounded-xl transition-all text-sm"
+                  title="Download alle vrije codes als CSV voor de fabrikant"
+                >
+                  ↓ Download voor fabrikant
                 </button>
               </div>
               {kaartMelding && <p className="text-sm text-emerald-600 mt-3">{kaartMelding}</p>}
