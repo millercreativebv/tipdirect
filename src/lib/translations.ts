@@ -30,7 +30,7 @@ export const vertalingen = {
     },
     prijzen: {
       titel: 'Kies uw abonnement',
-      subtitel: 'Eén jaarlijks tarief, geen verborgen kosten. Enkel de Mollie transactiekosten van €0,32 per ontvangen tip.',
+      subtitel: 'Eén jaarlijks tarief, geen verborgen kosten. Enkel de Mollie transactiekosten van €0,32 (ex btw) per ontvangen fooi.',
       personal: {
         naam: 'Personal',
         doelgroep: 'Voor zelfstandige professionals',
