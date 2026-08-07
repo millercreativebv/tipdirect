@@ -6,7 +6,7 @@ export const vertalingen = {
     hero: {
       heading: 'Ontvang een fooi',
       headingAccent: 'met een klik',
-      beschrijving: 'Jouw persoonlijke QR-code. Gasten scannen, kiezen een bedrag en betalen direct via Bancontact, WERO of Apple Pay. Het geld staat op jouw rekening — automatisch, zonder gedoe.',
+      beschrijving: 'Jouw persoonlijke QR-code. Gasten scannen, kiezen een bedrag en betalen direct via Bancontact of WERO. Het geld staat op jouw rekening — automatisch, zonder gedoe.',
       cta: 'Risicoloos starten',
       tagline: 'Geen voorschot · Geen app nodig · Werkt direct',
     },
