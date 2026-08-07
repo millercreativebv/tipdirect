@@ -91,9 +91,7 @@ export async function sendAbonnementActiefMail(params: {
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;">Welkom bij TipDirect, ${naam}! 🎉</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#4b5563;line-height:1.7;">
       Je ${isBedrijf ? 'bedrijfsabonnement' : 'abonnement'} is nu actief.
-      ${isBedrijf
-        ? 'Je ontvangt binnenkort een setje QR-kaarten op het door jou opgegeven adres.'
-        : 'Je QR-kaarten worden verstuurd zodra je abonnement is voldaan via ontvangen fooien.'}
+      Je ontvangt binnenkort een setje QR-kaarten op het door jou opgegeven adres.
     </p>
 
     <div style="background:#fdf5f9;border:1px solid #e8c0d4;border-radius:12px;padding:20px;margin-bottom:24px;">
