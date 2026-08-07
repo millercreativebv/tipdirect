@@ -58,7 +58,7 @@ export const vertalingen = {
         badge: 'Introductie tarief',
         features: [
           '5 medewerkers QR-passen inbegrepen',
-          'Medewerkers passen per 10 stuks bij te bestellen',
+          'Medewerkers passen per 5 stuks bij te bestellen',
           'Uw bedrijfslogo op elke persoonlijke QR-pas',
           'Dashboard voor meerdere accounts',
           'Geen extra servicekosten',
