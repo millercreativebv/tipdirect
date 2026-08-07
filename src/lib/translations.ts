@@ -43,7 +43,7 @@ export const vertalingen = {
           'Persoonlijke betaalpagina op tipdirect.be/jouwnaam',
           '2 QR-passen inbegrepen',
           'Automatische uitbetaling via Mollie',
-          'WERO, Apple Pay & bankkaart',
+          'Bancontact & WERO',
           'Geen extra servicekosten',
         ],
         cta: 'Gratis starten',
@@ -57,7 +57,8 @@ export const vertalingen = {
         periode: 'eerste jaar, ex. BTW',
         badge: 'Introductie tarief',
         features: [
-          '5 persoonlijke QR-passen inbegrepen',
+          '5 medewerkers QR-passen inbegrepen',
+          'Medewerkers passen per 10 stuks bij te bestellen',
           'Uw bedrijfslogo op elke persoonlijke QR-pas',
           'Dashboard voor meerdere accounts',
           'Geen extra servicekosten',
