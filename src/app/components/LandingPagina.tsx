@@ -320,6 +320,7 @@ export default function LandingPagina() {
                 <p className="font-semibold text-white mb-1">Office & Sales</p>
                 <p>Prinses Marijkeweg 2-L</p>
                 <p>4191 XL Geldermalsen</p>
+                <p><a href="mailto:sales@tipdirect.be" className="hover:text-white transition-colors">sales@tipdirect.be</a></p>
               </div>
               <div>
                 <p className="font-semibold text-white mb-1">Partner België</p>
@@ -333,7 +334,7 @@ export default function LandingPagina() {
             <p>
               © 2026 TipDirect.be — een product van Miller Creative BV
               <span className="mx-2">·</span>
-              <a href="mailto:info@millercreative.nl" className="hover:text-white transition-colors">info@millercreative.nl</a>
+              <a href="mailto:info@tipdirect.be" className="hover:text-white transition-colors">info@tipdirect.be</a>
             </p>
             <div className="flex gap-4">
               <a href="/algemene-voorwaarden" className="hover:text-white transition-colors">Algemene Voorwaarden</a>
