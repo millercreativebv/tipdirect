@@ -9,7 +9,7 @@ const DEFAULT_T: Vertalingen['faq'] = {
   titel: 'Veelgestelde vragen',
   vragen: [
     { vraag: 'Voor welke beroepen is TipDirect geschikt?', antwoord: 'TipDirect is geschikt voor iedereen in de horeca en dienstensector die tips ontvangt: obers, barmannen, barista\'s, sommeliers, roomservice-medewerkers en andere horecaprofessionals. Zowel individueel als via een zakelijk account voor het volledige team.' },
-    { vraag: 'Moet de klant een app installeren?', antwoord: 'Nee. De klant scant de QR-code met de gewone camera van zijn telefoon en betaalt in één tik via WERO, Apple Pay of bankkaart. Geen app, geen account, geen gedoe.' },
+    { vraag: 'Moet de klant een app installeren?', antwoord: 'Nee. De klant scant de QR-code met de gewone camera van zijn telefoon en betaalt in één tik via Bancontact of WERO. Geen app, geen account, geen gedoe.' },
     { vraag: 'Hoe ontvang ik het geld?', antwoord: 'De tip wordt rechtstreeks op uw bankrekening gestort via Mollie. Uitbetalingen gebeuren automatisch door Mollie. U hoeft hier zelf niets voor te doen.' },
     { vraag: 'Hoeveel kost het?', antwoord: 'TipDirect heeft geen maandelijks abonnement. Per ontvangen tip wordt €0,50 in rekening gebracht als servicekosten, plus €0,32 Mollie-transactiekosten. In totaal dus €0,82 per transactie — volledig voor rekening van de ober of de zaak. De klant betaalt altijd precies het bedrag dat hij zelf heeft gekozen.' },
     { vraag: 'Is het veilig?', antwoord: 'Ja. Alle betalingen worden verwerkt door Mollie, gecertificeerd op PCI DSS niveau 1 — het hoogste beveiligingsniveau voor betalingsverkeer. TipDirect slaat zelf geen bankgegevens of betaalkaartinformatie op.' },
