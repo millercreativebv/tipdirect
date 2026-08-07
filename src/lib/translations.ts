@@ -52,14 +52,14 @@ export const vertalingen = {
       business: {
         naam: 'Business',
         doelgroep: 'Voor restaurants, cafés en hotels',
-        beschrijving: 'Eén account met je eigen dashboard voor tien medewerkers! Elke medewerker krijgt een eigen betaalpagina en QR-pas.',
+        beschrijving: 'Eén account met je eigen dashboard voor vijf medewerkers! Elke medewerker krijgt een eigen betaalpagina en QR-pas.',
         prijs: '€75',
         periode: 'eerste jaar, ex. BTW',
         badge: 'Introductie tarief',
         features: [
           '5 medewerkers QR-passen inbegrepen',
           'Medewerkers passen per 5 stuks bij te bestellen',
-          'Uw bedrijfslogo op elke persoonlijke QR-pas',
+
           'Dashboard voor meerdere accounts',
           'Geen extra servicekosten',
         ],
