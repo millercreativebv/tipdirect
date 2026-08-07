@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { mollie, MOLLIE_FEE_CENTEN, getGeldigAccessToken, verbondenMollieClient } from '@/lib/mollie'
 import { adminDb } from '@/lib/firebase-admin'
 import { verwerkBetalingVoorAbonnement } from '@/lib/abonnement'
+import { sendAbonnementActiefMail, sendAdminKaartorderNotificatie } from '@/lib/mail'
 import type { Payment } from '@mollie/api-client'
 
 export async function POST(req: NextRequest) {
@@ -83,7 +84,8 @@ export async function POST(req: NextRequest) {
     // ─── Directe abonnementsbetaling (bedrijf) ───────────────────────────────
     if (betalingData.betaling_type === 'abonnement') {
       const oberSnap = await adminDb.collection('obers').doc(oberId).get()
-      const partnerId = oberSnap.data()?.aangebracht_door ?? null
+      const oberData2 = oberSnap.data()
+      const partnerId = oberData2?.aangebracht_door ?? null
 
       await adminDb.collection('abonnementen').doc(oberId).set({
         status: 'actief',
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
       }, { merge: true })
 
       await adminDb.collection('obers').doc(oberId).update({ abonnement_actief: true, actief: true })
-      await wijsKaartCodesAutoToe(oberId, 'bedrijf')
+      const kaartOrder = await wijsKaartCodesAutoToe(oberId, 'bedrijf')
 
       const feeVerdeling = berekenFeeVerdeling(bedragCenten)
       if (partnerId) {
@@ -111,6 +113,29 @@ export async function POST(req: NextRequest) {
         abonnement_nu_actief: true,
       })
 
+      // Mails — fouten mogen webhook niet blokkeren
+      if (oberData2?.email) {
+        sendAbonnementActiefMail({
+          email: oberData2.email,
+          naam: oberData2.naam ?? oberId,
+          accountType: 'bedrijf',
+        }).catch(e => console.error('Welkomstmail mislukt:', e))
+      }
+      if (kaartOrder) {
+        sendAdminKaartorderNotificatie({
+          setId: kaartOrder.setId,
+          accountType: 'bedrijf',
+          naam: oberData2?.naam ?? oberId,
+          email: oberData2?.email ?? '',
+          straat: oberData2?.adres_straat ?? null,
+          postcode: oberData2?.adres_postcode ?? null,
+          stad: oberData2?.adres_stad ?? null,
+          land: oberData2?.adres_land ?? null,
+          aantalKaarten: kaartOrder.aantalKaarten,
+          heeftVoorraad: kaartOrder.heeftVoorraad,
+        }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
+      }
+
       return NextResponse.json({ ok: true })
     }
 
@@ -125,7 +150,7 @@ export async function POST(req: NextRequest) {
       }, { merge: true })
 
       await adminDb.collection('obers').doc(oberId).update({ abonnement_actief: true, actief: true })
-      await wijsKaartCodesAutoToe(oberId, 'individueel')
+      const kaartOrderI = await wijsKaartCodesAutoToe(oberId, 'individueel')
 
       await betalingDoc.ref.update({
         status: nieuweStatus,
@@ -134,6 +159,31 @@ export async function POST(req: NextRequest) {
         abonnement_verwerkt: true,
         abonnement_nu_actief: true,
       })
+
+      // Mails
+      const oberSnapI = await adminDb.collection('obers').doc(oberId).get()
+      const oberDataI = oberSnapI.data()
+      if (oberDataI?.email) {
+        sendAbonnementActiefMail({
+          email: oberDataI.email,
+          naam: oberDataI.naam ?? oberId,
+          accountType: 'individueel',
+        }).catch(e => console.error('Welkomstmail mislukt:', e))
+      }
+      if (kaartOrderI) {
+        sendAdminKaartorderNotificatie({
+          setId: kaartOrderI.setId,
+          accountType: 'individueel',
+          naam: oberDataI?.naam ?? oberId,
+          email: oberDataI?.email ?? '',
+          straat: oberDataI?.adres_straat ?? null,
+          postcode: oberDataI?.adres_postcode ?? null,
+          stad: oberDataI?.adres_stad ?? null,
+          land: oberDataI?.adres_land ?? null,
+          aantalKaarten: kaartOrderI.aantalKaarten,
+          heeftVoorraad: kaartOrderI.heeftVoorraad,
+        }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
+      }
 
       return NextResponse.json({ ok: true })
     }
@@ -168,7 +218,8 @@ export async function POST(req: NextRequest) {
           await verwerkPartnerTegoed(partnerId, feeVerdeling.strictly_hospitality, betalingDoc.id)
         }
 
-        if (abonnementNuActief) await wijsKaartCodesAutoToe(oberId, 'individueel')
+        let kaartOrderMC = null
+        if (abonnementNuActief) kaartOrderMC = await wijsKaartCodesAutoToe(oberId, 'individueel')
 
         await betalingDoc.ref.update({
           status: nieuweStatus,
@@ -181,6 +232,32 @@ export async function POST(req: NextRequest) {
           abonnement_verwerkt: true,
           abonnement_nu_actief: abonnementNuActief,
         })
+
+        if (abonnementNuActief) {
+          const oberSnapMC = await adminDb.collection('obers').doc(oberId).get()
+          const oberDataMC = oberSnapMC.data()
+          if (oberDataMC?.email) {
+            sendAbonnementActiefMail({
+              email: oberDataMC.email,
+              naam: oberDataMC.naam ?? oberId,
+              accountType: 'individueel',
+            }).catch(e => console.error('Welkomstmail mislukt:', e))
+          }
+          if (kaartOrderMC) {
+            sendAdminKaartorderNotificatie({
+              setId: kaartOrderMC.setId,
+              accountType: 'individueel',
+              naam: oberDataMC?.naam ?? oberId,
+              email: oberDataMC?.email ?? '',
+              straat: oberDataMC?.adres_straat ?? null,
+              postcode: oberDataMC?.adres_postcode ?? null,
+              stad: oberDataMC?.adres_stad ?? null,
+              land: oberDataMC?.adres_land ?? null,
+              aantalKaarten: kaartOrderMC.aantalKaarten,
+              heeftVoorraad: kaartOrderMC.heeftVoorraad,
+            }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
+          }
+        }
       } else {
         // Actief account — geld staat al op ober's Mollie, geen verdere actie nodig
         await betalingDoc.ref.update({
@@ -259,7 +336,32 @@ export async function POST(req: NextRequest) {
       abonnement_nu_actief: abonnementNuActief,
     })
 
-    if (abonnementNuActief) await wijsKaartCodesAutoToe(abonnementOberId, 'individueel')
+    if (abonnementNuActief) {
+      const kaartOrderFallback = await wijsKaartCodesAutoToe(abonnementOberId, 'individueel')
+      const oberSnapFB = await adminDb.collection('obers').doc(abonnementOberId).get()
+      const oberDataFB = oberSnapFB.data()
+      if (oberDataFB?.email) {
+        sendAbonnementActiefMail({
+          email: oberDataFB.email,
+          naam: oberDataFB.naam ?? abonnementOberId,
+          accountType: 'individueel',
+        }).catch(e => console.error('Welkomstmail mislukt:', e))
+      }
+      if (kaartOrderFallback) {
+        sendAdminKaartorderNotificatie({
+          setId: kaartOrderFallback.setId,
+          accountType: 'individueel',
+          naam: oberDataFB?.naam ?? abonnementOberId,
+          email: oberDataFB?.email ?? '',
+          straat: oberDataFB?.adres_straat ?? null,
+          postcode: oberDataFB?.adres_postcode ?? null,
+          stad: oberDataFB?.adres_stad ?? null,
+          land: oberDataFB?.adres_land ?? null,
+          aantalKaarten: kaartOrderFallback.aantalKaarten,
+          heeftVoorraad: kaartOrderFallback.heeftVoorraad,
+        }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
+      }
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {
@@ -288,7 +390,11 @@ function berekenFeeVerdeling(bedragExBtwCenten: number) {
 
 // Koppelt automatisch kaartcodes + maakt een kaart_order aan bij activering.
 // Pakt de eerstvolgende vrije set passend bij het account-type en maakt een kaart_order aan.
-async function wijsKaartCodesAutoToe(oberId: string, accountType: string) {
+// Geeft kaartorder-info terug zodat mails kunnen worden verstuurd.
+async function wijsKaartCodesAutoToe(
+  oberId: string,
+  accountType: string
+): Promise<{ setId: string | null; aantalKaarten: number; heeftVoorraad: boolean } | null> {
   try {
     const bestaandSnap = await adminDb
       .collection('kaart_orders')
@@ -296,10 +402,10 @@ async function wijsKaartCodesAutoToe(oberId: string, accountType: string) {
       .where('type', '==', 'inclusief')
       .limit(1)
       .get()
-    if (!bestaandSnap.empty) return
+    if (!bestaandSnap.empty) return null
 
     const oberSnap = await adminDb.collection('obers').doc(oberId).get()
-    if (!oberSnap.exists) return
+    if (!oberSnap.exists) return null
     const ober = oberSnap.data()!
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://tipdirect.be'
@@ -317,17 +423,23 @@ async function wijsKaartCodesAutoToe(oberId: string, accountType: string) {
     const setDoc = heeftSet ? setSnap.docs[0] : null
     const setData = setDoc ? setDoc.data() : null
     const codes: string[] = setData?.codes ?? []
+    const aantalKaarten = heeftSet ? codes.length : (setType === 'bedrijf' ? 5 : 2)
 
     const orderRef = adminDb.collection('kaart_orders').doc()
     await orderRef.set({
       ober_id: oberId,
       naam: ober.naam ?? '',
       account_type: accountType,
-      aantal: heeftSet ? codes.length : (setType === 'bedrijf' ? 5 : 2),
+      aantal: aantalKaarten,
       type: 'inclusief',
       status: heeftSet ? 'aangevraagd' : 'wacht_op_voorraad',
       set_id: setDoc?.id ?? null,
       codes,
+      // Verzendadres meeslaan voor admin-referentie
+      adres_straat: ober.adres_straat ?? null,
+      adres_postcode: ober.adres_postcode ?? null,
+      adres_stad: ober.adres_stad ?? null,
+      adres_land: ober.adres_land ?? null,
       track_trace: null,
       aangemaakt_op: nu,
       verzonden_op: null,
@@ -354,8 +466,11 @@ async function wijsKaartCodesAutoToe(oberId: string, accountType: string) {
       }
       await batch.commit()
     }
+
+    return { setId: setDoc?.id ?? null, aantalKaarten, heeftVoorraad: heeftSet }
   } catch (err) {
     console.error('Kaartcodes auto-toewijzen mislukt:', err)
+    return null
   }
 }
 
