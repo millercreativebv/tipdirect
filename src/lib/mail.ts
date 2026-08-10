@@ -138,21 +138,29 @@ export async function sendAdminKaartorderNotificatie(params: {
   land: string | null
   aantalKaarten: number
   heeftVoorraad: boolean
+  orderType?: 'inclusief' | 'bijbestelling'
 }) {
-  const { setId, accountType, naam, email, straat, postcode, stad, land, aantalKaarten, heeftVoorraad } = params
+  const { setId, accountType, naam, email, straat, postcode, stad, land, aantalKaarten, heeftVoorraad, orderType = 'inclusief' } = params
 
+  const isBijbestelling = orderType === 'bijbestelling'
   const adresRegel = [straat, `${postcode ?? ''} ${stad ?? ''}`.trim(), land]
     .filter(Boolean)
     .join(', ')
 
   const setLabel = setId
     ? `<span style="display:inline-block;background:${MERK};color:#fff;font-weight:700;font-size:16px;padding:6px 16px;border-radius:8px;letter-spacing:1px;">${setId}</span>`
-    : `<span style="color:#6b7280;font-style:italic;">Geen voorraad — staat op wacht</span>`
+    : `<span style="color:#6b7280;font-style:italic;">${isBijbestelling ? 'Handmatig te verwerken' : 'Geen voorraad — staat op wacht'}</span>`
 
   const inhoud = `
-    <h1 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111827;">📦 Nieuwe kaartorder</h1>
+    <h1 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111827;">
+      ${isBijbestelling ? '🔄 Bijbestelling kaarten' : '📦 Nieuwe kaartorder'}
+    </h1>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
-      ${heeftVoorraad ? `Stuur <strong>${setId}</strong> naar onderstaand adres.` : 'Geen voorraad beschikbaar — bestel bij de fabrikant.'}
+      ${isBijbestelling
+        ? `Klant vraagt ${aantalKaarten} extra kaarten aan. Verstuur naar onderstaand adres.`
+        : heeftVoorraad
+          ? `Stuur <strong>${setId}</strong> naar onderstaand adres.`
+          : 'Geen voorraad beschikbaar — bestel bij de fabrikant.'}
     </p>
 
     <div style="background:#f8faff;border:1px solid #e5e9f5;border-radius:12px;padding:20px;margin-bottom:20px;">
@@ -160,6 +168,7 @@ export async function sendAdminKaartorderNotificatie(params: {
       <div style="text-align:center;margin-bottom:12px;">${setLabel}</div>
       <table width="100%" cellpadding="0" cellspacing="0">
         ${infoRegel('Type', accountType === 'bedrijf' ? `Bedrijf (${aantalKaarten} kaarten)` : `Individueel (${aantalKaarten} kaarten)`)}
+        ${infoRegel('Soort', isBijbestelling ? 'Bijbestelling' : 'Inclusief bij abonnement')}
       </table>
     </div>
 
@@ -178,9 +187,11 @@ export async function sendAdminKaartorderNotificatie(params: {
   await transporter.sendMail({
     from: FROM,
     to: ADMIN,
-    subject: heeftVoorraad
-      ? `📦 Kaartorder: stuur ${setId} naar ${naam}`
-      : `⚠️ Kaartorder: geen voorraad voor ${naam}`,
+    subject: isBijbestelling
+      ? `🔄 Bijbestelling: ${aantalKaarten} kaarten voor ${naam}`
+      : heeftVoorraad
+        ? `📦 Kaartorder: stuur ${setId} naar ${naam}`
+        : `⚠️ Kaartorder: geen voorraad voor ${naam}`,
     html: mailHtml(inhoud),
   })
 }
