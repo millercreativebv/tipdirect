@@ -365,7 +365,7 @@ export default function RegistreerPagina() {
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center text-2xl flex-shrink-0">👤</div>
                 <div>
-                  <p className="font-bold text-gray-900 group-hover:text-brand-600">Ik ben een zelfstandige professional</p>
+                  <p className="font-bold text-gray-900 group-hover:text-brand-600">Ik ontvang persoonlijk fooien</p>
                   <p className="text-sm text-gray-500">Ontvang fooien via jouw persoonlijke QR-code</p>
                 </div>
               </div>
