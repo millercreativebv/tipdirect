@@ -216,7 +216,7 @@ export default function BetaalFormulier({ ober, bedrijf }: { ober: OberData; bed
               Doorsturen...
             </span>
           ) : (
-            'Betaal via Bancontact, KBC of Belfius'
+            'Betaal via Bancontact, iDEAL of WERO'
           )}
         </button>
 
