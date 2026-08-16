@@ -125,7 +125,166 @@ export async function sendAbonnementActiefMail(params: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. ADMIN-NOTIFICATIE BIJ NIEUWE KAARTORDER (inclusief verzendadres)
+// 2. REGISTRATIEBEVESTIGING BIJ NIEUW ACCOUNT (direct na profiel opslaan)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendRegistratieBevestigingMail(params: {
+  email: string
+  naam: string
+  gebruikersnaam: string
+  accountType: 'individueel' | 'bedrijf'
+}) {
+  const { email, naam, gebruikersnaam, accountType } = params
+  const isIndividueel = accountType === 'individueel'
+
+  const inhoud = isIndividueel ? `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;">Welkom bij TipDirect, ${naam}! 👋</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#4b5563;line-height:1.7;">
+      Je account is aangemaakt. Je persoonlijke betaalpagina staat al live op:
+    </p>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${BASE}/${gebruikersnaam}" style="display:inline-block;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:10px;padding:12px 24px;font-family:monospace;font-size:15px;color:#A1105A;text-decoration:none;font-weight:700;">
+        tipdirect.be/${gebruikersnaam}
+      </a>
+    </div>
+
+    <div style="background:#fdf5f9;border:1px solid #e8c0d4;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:${MERK};letter-spacing:0.08em;text-transform:uppercase;">Volgende stap — koppel je Mollie-account</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.8;">
+        Ga naar je dashboard en koppel je Mollie-account. Zodra dat gedaan is, is je QR-code actief en kunnen gasten je een fooi geven.
+      </p>
+    </div>
+
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#6b7280;letter-spacing:0.08em;text-transform:uppercase;">Zo werkt je abonnement</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.8;">
+        Je betaalt <strong>niets vooraf</strong>. De eerste fooien die je ontvangt gaan naar je abonnement (€25). Zodra dat bedrag bereikt is, gaan alle volgende tips direct naar jou — min alleen de Mollie-transactiekost van €0,32.<br><br>
+        Je QR-kaarten worden naar jouw adres verstuurd zodra je abonnement voldaan is.
+      </p>
+    </div>
+
+    ${knop(`${BASE}/dashboard`, 'Naar mijn dashboard')}
+
+    <p style="margin:24px 0 0;font-size:13px;color:#6b7280;text-align:center;">
+      Vragen? Mail ons op <a href="mailto:info@tipdirect.be" style="color:${MERK};">info@tipdirect.be</a>
+    </p>
+  ` : `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;">Bijna klaar, ${naam}! 🏁</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#4b5563;line-height:1.7;">
+      Je bedrijfsgegevens zijn opgeslagen. Er is nog één stap nodig om je account te activeren: de betaling.
+    </p>
+
+    <div style="background:#fdf5f9;border:1px solid #e8c0d4;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:${MERK};letter-spacing:0.08em;text-transform:uppercase;">Wat gebeurt er na betaling?</p>
+      <p style="margin:0;font-size:14px;color:#374151;line-height:1.8;">
+        1. Je account wordt direct geactiveerd<br>
+        2. Je ontvangt een bevestiging per mail<br>
+        3. Je QR-kaarten voor je team worden verstuurd<br>
+        4. Koppel je Mollie-account via het dashboard om fooien te ontvangen
+      </p>
+    </div>
+
+    ${knop(`${BASE}/dashboard`, 'Naar mijn dashboard')}
+
+    <p style="margin:24px 0 0;font-size:13px;color:#6b7280;text-align:center;">
+      Vragen? Mail ons op <a href="mailto:info@tipdirect.be" style="color:${MERK};">info@tipdirect.be</a>
+    </p>
+  `
+
+  await transporter.sendMail({
+    from: FROM,
+    to: email,
+    subject: isIndividueel
+      ? `Je TipDirect-account staat klaar — koppel nu Mollie`
+      : `Één stap nog — voltooi je TipDirect-account`,
+    html: mailHtml(inhoud),
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. ADMIN-NOTIFICATIE BIJ NIEUWE REGISTRATIE
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendAdminNieuweRegistratieNotificatie(params: {
+  naam: string
+  email: string
+  accountType: 'individueel' | 'bedrijf'
+  telefoon: string | null
+  straat: string | null
+  postcode: string | null
+  stad: string | null
+  land: string | null
+  iban: string | null
+  ibanNaam: string | null
+  btwNummer: string | null
+  kvk: string | null
+  gebruikersnaam: string
+}) {
+  const { naam, email, accountType, telefoon, straat, postcode, stad, land, iban, ibanNaam, btwNummer, kvk, gebruikersnaam } = params
+
+  const adresRegel = [straat, `${postcode ?? ''} ${stad ?? ''}`.trim(), land]
+    .filter(Boolean)
+    .join(', ')
+
+  const isIndividueel = accountType === 'individueel'
+
+  const inhoud = `
+    <h1 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111827;">🆕 Nieuwe registratie</h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      ${isIndividueel
+        ? 'Individueel account aangemaakt. Kaarten worden verstuurd zodra abonnement via fooien voldaan is.'
+        : 'Bedrijfsaccount aangemaakt. Wacht op betaling — daarna kaartorder aanmaken.'}
+    </p>
+
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#15803d;letter-spacing:0.08em;text-transform:uppercase;">Accountgegevens</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${infoRegel('Naam', naam)}
+        ${infoRegel('Type', isIndividueel ? 'Individueel' : 'Bedrijf')}
+        ${infoRegel('Pagina', `tipdirect.be/${gebruikersnaam}`)}
+        ${infoRegel('Status', isIndividueel ? 'Actief — wacht op Mollie-koppeling' : 'Wacht op betaling (€75)')}
+      </table>
+    </div>
+
+    <div style="background:#f8faff;border:1px solid #e5e9f5;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:0.08em;text-transform:uppercase;">Contactgegevens</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${infoRegel('E-mail', email)}
+        ${telefoon ? infoRegel('Telefoon', telefoon) : ''}
+        ${adresRegel ? infoRegel('Adres', adresRegel) : infoRegel('Adres', '⚠️ Niet ingevuld')}
+      </table>
+    </div>
+
+    ${isIndividueel && iban ? `
+    <div style="background:#f8faff;border:1px solid #e5e9f5;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:0.08em;text-transform:uppercase;">Bankgegevens (SEPA-incasso)</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${infoRegel('IBAN', iban)}
+        ${ibanNaam ? infoRegel('T.n.v.', ibanNaam) : ''}
+      </table>
+    </div>` : ''}
+
+    ${btwNummer || kvk ? `
+    <div style="background:#f8faff;border:1px solid #e5e9f5;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:0.08em;text-transform:uppercase;">Fiscaal</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${kvk ? infoRegel('KBO-nummer', kvk) : ''}
+        ${btwNummer ? infoRegel('BTW-nummer', btwNummer) : ''}
+      </table>
+    </div>` : ''}
+
+    ${knop(`${BASE}/admin`, 'Naar admin dashboard')}
+  `
+
+  await transporter.sendMail({
+    from: FROM,
+    to: ADMIN,
+    subject: `🆕 Nieuwe registratie: ${naam} (${isIndividueel ? 'individueel' : 'bedrijf'})`,
+    html: mailHtml(inhoud),
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. ADMIN-NOTIFICATIE BIJ NIEUWE KAARTORDER (inclusief verzendadres)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function sendAdminKaartorderNotificatie(params: {
   setId: string | null

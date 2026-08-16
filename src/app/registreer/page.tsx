@@ -195,6 +195,18 @@ export default function RegistreerPagina() {
         })
       }
 
+      // Stuur registratiebevestiging (vuur-en-vergeet — mag registratie niet blokkeren)
+      const huidigUser = auth.currentUser
+      if (huidigUser) {
+        const { getIdToken } = await import('firebase/auth')
+        getIdToken(huidigUser).then(token =>
+          fetch('/api/mijn/registratie-bevestiging', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        ).catch(e => console.error('Registratiemails mislukt:', e))
+      }
+
       setStap(accountType === 'bedrijf' ? 'betaling' : 'klaar')
     } catch {
       setFout('Opslaan mislukt. Probeer het opnieuw.')
