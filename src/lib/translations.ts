@@ -99,7 +99,7 @@ export const vertalingen = {
         { vraag: 'Moet de klant een app installeren?', antwoord: 'Nee. De klant scant de QR-code met de gewone camera van zijn telefoon en betaalt in één tik via Bancontact, KBC of Belfius. Geen app, geen account, geen gedoe.' },
         { vraag: 'Hoe ontvang ik het geld?', antwoord: 'De tip wordt rechtstreeks op uw bankrekening gestort via Mollie. Uitbetalingen gebeuren automatisch door Mollie. U hoeft hier zelf niets voor te doen.' },
         { vraag: 'Hoeveel kost het?', antwoord: 'De enige kosten naast je abonnement zijn de Mollie transactiekosten van €0,32 per ontvangen tip. TipDirect rekent GEEN servicekosten. De klant betaalt altijd precies het bedrag dat hij zelf heeft gekozen.' },
-        { vraag: 'Is het veilig?', antwoord: 'Ja. Alle betalingen worden verwerkt door Mollie, gecertificeerd op PCI DSS niveau 1 — het hoogste beveiligingsniveau voor betalingsverkeer. TipDirect slaat zelf geen bankgegevens of betaalkaartinformatie op.' },
+        { vraag: 'Is het veilig om te betalen via een webpagina?', antwoord: 'Ja, volledig veilig. De TipDirect-pagina verwerkt zelf nooit betaalgegevens. Zodra je op "Betalen" klikt, word je doorgestuurd naar de beveiligde betaalomgeving van Mollie — gecertificeerd op PCI DSS niveau 1, het hoogste beveiligingsniveau voor betalingsverkeer, hetzelfde als grote banken. TipDirect ziet of bewaart nooit kaart- of rekeninggegevens van de betaler. Vergelijkbaar met hoe iedere webshop werkt: de productpagina is HTML, maar de betaling loopt altijd via een gecertificeerde betaalprovider.' },
       ],
     },
     footer: 'Veilig betalen via Mollie',
