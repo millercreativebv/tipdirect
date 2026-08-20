@@ -317,16 +317,16 @@ export default function LandingPagina() {
             <div className="flex-1 p-8 md:p-10">
               <span className="text-5xl leading-none text-brand-200 font-serif select-none">&ldquo;</span>
               <div className="space-y-3 text-gray-600 text-sm leading-relaxed -mt-2">
-                <p>Al meer dan 25 jaar werk ik met veel passie in de horeca. In die jaren heb ik heel wat zien veranderen. Eén van de grootste veranderingen? Het bijna verdwijnen van drinkgeld.</p>
-                <p>Vroeger liet een tevreden gast vaak nog een extraatje achter op tafel, samen met een glimlach en een oprechte: <span className="italic text-gray-700">&ldquo;Dank u, Tom, voor een fijne avond.&rdquo;</span></p>
-                <p>Vandaag verloopt bijna alles digitaal en daardoor verdwijnt ook steeds vaker de mogelijkheid om spontaan een fooi achter te laten. Precies daarom hebben wij TipDirect ontwikkeld.</p>
-                <p>Met TipDirect kunnen gasten eenvoudig digitaal een fooi geven, zodat horecamedewerkers opnieuw die extra waardering kunnen ontvangen voor hun inzet en gastvrijheid.</p>
-                <p className="text-gray-700">En laten we eerlijk zijn... Een fooi ontvangen is geweldig. Maar als daar ook nog <span className="italic">&ldquo;Dank u voor een fijne avond&rdquo;</span> bij komt, voelt dat nét iets mooier.</p>
+                <p>{t.tomVerhaal.p1}</p>
+                <p>{t.tomVerhaal.p2voor} <span className="italic text-gray-700">&ldquo;{t.tomVerhaal.p2citaat}&rdquo;</span></p>
+                <p>{t.tomVerhaal.p3}</p>
+                <p>{t.tomVerhaal.p4}</p>
+                <p className="text-gray-700">{t.tomVerhaal.p5voor} <span className="italic">&ldquo;{t.tomVerhaal.p5citaat}&rdquo;</span> {t.tomVerhaal.p5na}</p>
               </div>
               <div className="mt-6 pt-5 border-t border-gray-100 flex items-center gap-3">
                 <div>
-                  <p className="font-bold text-gray-900">Tom Wuyts</p>
-                  <p className="text-xs text-brand-500 font-medium">Strictly Hospitality</p>
+                  <p className="font-bold text-gray-900">{t.tomVerhaal.naam}</p>
+                  <p className="text-xs text-brand-500 font-medium">{t.tomVerhaal.titel}</p>
                 </div>
               </div>
             </div>
