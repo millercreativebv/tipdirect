@@ -303,18 +303,14 @@ export default function LandingPagina() {
           <div className="flex flex-col md:flex-row">
 
             {/* Foto */}
-            <div className="md:w-64 flex-shrink-0 bg-brand-50 flex items-center justify-center p-8 md:p-10">
-              <div className="relative">
-                <div className="w-36 h-36 md:w-44 md:h-44 rounded-full overflow-hidden ring-4 ring-white shadow-lg">
-                  <Image
-                    src="/tom.png"
-                    alt="Tom Wuyts"
-                    width={176}
-                    height={176}
-                    className="object-cover w-full h-full"
-                  />
-                </div>
-              </div>
+            <div className="md:w-56 flex-shrink-0 overflow-hidden">
+              <Image
+                src="/tom.jpeg"
+                alt="Tom Wuyts"
+                width={224}
+                height={320}
+                className="object-cover w-full h-64 md:h-full"
+              />
             </div>
 
             {/* Tekst */}
