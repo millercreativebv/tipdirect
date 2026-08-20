@@ -326,7 +326,7 @@ export default function LandingPagina() {
               <div className="mt-6 pt-5 border-t border-gray-100 flex items-center gap-3">
                 <div>
                   <p className="font-bold text-gray-900">Tom Wuyts</p>
-                  <p className="text-xs text-brand-500 font-medium">Belgisch partner · Strictly Hospitality</p>
+                  <p className="text-xs text-brand-500 font-medium">Strictly Hospitality</p>
                 </div>
               </div>
             </div>
