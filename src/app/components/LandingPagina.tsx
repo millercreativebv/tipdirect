@@ -297,6 +297,48 @@ export default function LandingPagina() {
         </div>
       </section>
 
+      {/* Verhaal Tom Wuyts */}
+      <section className="max-w-4xl mx-auto px-4 pb-24">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="flex flex-col md:flex-row">
+
+            {/* Foto */}
+            <div className="md:w-64 flex-shrink-0 bg-brand-50 flex items-center justify-center p-8 md:p-10">
+              <div className="relative">
+                <div className="w-36 h-36 md:w-44 md:h-44 rounded-full overflow-hidden ring-4 ring-white shadow-lg">
+                  <Image
+                    src="/tom.png"
+                    alt="Tom Wuyts"
+                    width={176}
+                    height={176}
+                    className="object-cover w-full h-full"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Tekst */}
+            <div className="flex-1 p-8 md:p-10">
+              <span className="text-5xl leading-none text-brand-200 font-serif select-none">&ldquo;</span>
+              <div className="space-y-3 text-gray-600 text-sm leading-relaxed -mt-2">
+                <p>Al meer dan 25 jaar werk ik met veel passie in de horeca. In die jaren heb ik heel wat zien veranderen. Eén van de grootste veranderingen? Het bijna verdwijnen van drinkgeld.</p>
+                <p>Vroeger liet een tevreden gast vaak nog een extraatje achter op tafel, samen met een glimlach en een oprechte: <span className="italic text-gray-700">&ldquo;Dank u, Tom, voor een fijne avond.&rdquo;</span></p>
+                <p>Vandaag verloopt bijna alles digitaal en daardoor verdwijnt ook steeds vaker de mogelijkheid om spontaan een fooi achter te laten. Precies daarom hebben wij TipDirect ontwikkeld.</p>
+                <p>Met TipDirect kunnen gasten eenvoudig digitaal een fooi geven, zodat horecamedewerkers opnieuw die extra waardering kunnen ontvangen voor hun inzet en gastvrijheid.</p>
+                <p className="text-gray-700">En laten we eerlijk zijn... Een fooi ontvangen is geweldig. Maar als daar ook nog <span className="italic">&ldquo;Dank u voor een fijne avond&rdquo;</span> bij komt, voelt dat nét iets mooier.</p>
+              </div>
+              <div className="mt-6 pt-5 border-t border-gray-100 flex items-center gap-3">
+                <div>
+                  <p className="font-bold text-gray-900">Tom Wuyts</p>
+                  <p className="text-xs text-brand-500 font-medium">Belgisch partner · Strictly Hospitality</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
       <div id="faq">
         <FAQ t={t.faq} />
