@@ -125,7 +125,41 @@ export async function sendAbonnementActiefMail(params: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. REGISTRATIEBEVESTIGING BIJ NIEUW ACCOUNT (direct na profiel opslaan)
+// 2. WACHTWOORD RESET MAIL
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendWachtwoordResetMail(params: {
+  email: string
+  resetLink: string
+}) {
+  const { email, resetLink } = params
+
+  const inhoud = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;">Wachtwoord opnieuw instellen</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#4b5563;line-height:1.7;">
+      We hebben een verzoek ontvangen om het wachtwoord van je TipDirect-account te resetten.
+      Klik op de knop hieronder om een nieuw wachtwoord in te stellen.
+    </p>
+
+    ${knop(resetLink, 'Nieuw wachtwoord instellen')}
+
+    <p style="margin:0 0 8px;font-size:13px;color:#6b7280;text-align:center;">
+      De link is 1 uur geldig.
+    </p>
+    <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;">
+      Heb je dit niet zelf aangevraagd? Dan kun je deze mail veilig negeren — je wachtwoord wordt niet gewijzigd.
+    </p>
+  `
+
+  await transporter.sendMail({
+    from: FROM,
+    to: email,
+    subject: 'Wachtwoord resetten — TipDirect',
+    html: mailHtml(inhoud),
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. REGISTRATIEBEVESTIGING BIJ NIEUW ACCOUNT (direct na profiel opslaan)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function sendRegistratieBevestigingMail(params: {
   email: string
