@@ -11,11 +11,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const resetLink = await adminAuth.generatePasswordResetLink(email.trim(), {
-      url: `${process.env.NEXT_PUBLIC_BASE_URL ?? 'https://tipdirect.be'}/inloggen`,
-    })
-
+    const resetLink = await adminAuth.generatePasswordResetLink(email.trim())
     await sendWachtwoordResetMail({ email: email.trim(), resetLink })
+    console.log('Wachtwoord reset mail verstuurd naar:', email.trim())
   } catch (err) {
     // Altijd succes teruggeven — geeft geen info weg over welke e-mails bestaan
     console.error('Wachtwoord reset fout:', err)
