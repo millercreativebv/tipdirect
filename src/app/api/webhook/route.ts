@@ -113,28 +113,30 @@ export async function POST(req: NextRequest) {
         abonnement_nu_actief: true,
       })
 
-      // Mails — fouten mogen webhook niet blokkeren
-      if (oberData2?.email) {
-        sendAbonnementActiefMail({
-          email: oberData2.email,
-          naam: oberData2.naam ?? oberId,
-          accountType: 'bedrijf',
-        }).catch(e => console.error('Welkomstmail mislukt:', e))
-      }
-      if (kaartOrder) {
-        sendAdminKaartorderNotificatie({
-          setId: kaartOrder.setId,
-          accountType: 'bedrijf',
-          naam: oberData2?.naam ?? oberId,
-          email: oberData2?.email ?? '',
-          straat: oberData2?.adres_straat ?? null,
-          postcode: oberData2?.adres_postcode ?? null,
-          stad: oberData2?.adres_stad ?? null,
-          land: oberData2?.adres_land ?? null,
-          aantalKaarten: kaartOrder.aantalKaarten,
-          heeftVoorraad: kaartOrder.heeftVoorraad,
-        }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
-      }
+      // Mails — wacht op beide maar laat fouten de webhook niet breken
+      await Promise.allSettled([
+        oberData2?.email
+          ? sendAbonnementActiefMail({
+              email: oberData2.email,
+              naam: oberData2.naam ?? oberId,
+              accountType: 'bedrijf',
+            }).catch(e => console.error('Welkomstmail mislukt:', e))
+          : Promise.resolve(),
+        kaartOrder
+          ? sendAdminKaartorderNotificatie({
+              setId: kaartOrder.setId,
+              accountType: 'bedrijf',
+              naam: oberData2?.naam ?? oberId,
+              email: oberData2?.email ?? '',
+              straat: oberData2?.adres_straat ?? null,
+              postcode: oberData2?.adres_postcode ?? null,
+              stad: oberData2?.adres_stad ?? null,
+              land: oberData2?.adres_land ?? null,
+              aantalKaarten: kaartOrder.aantalKaarten,
+              heeftVoorraad: kaartOrder.heeftVoorraad,
+            }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
+          : Promise.resolve(),
+      ])
 
       return NextResponse.json({ ok: true })
     }
@@ -160,30 +162,32 @@ export async function POST(req: NextRequest) {
         abonnement_nu_actief: true,
       })
 
-      // Mails
+      // Mails — wacht op beide maar laat fouten de webhook niet breken
       const oberSnapI = await adminDb.collection('obers').doc(oberId).get()
       const oberDataI = oberSnapI.data()
-      if (oberDataI?.email) {
-        sendAbonnementActiefMail({
-          email: oberDataI.email,
-          naam: oberDataI.naam ?? oberId,
-          accountType: 'individueel',
-        }).catch(e => console.error('Welkomstmail mislukt:', e))
-      }
-      if (kaartOrderI) {
-        sendAdminKaartorderNotificatie({
-          setId: kaartOrderI.setId,
-          accountType: 'individueel',
-          naam: oberDataI?.naam ?? oberId,
-          email: oberDataI?.email ?? '',
-          straat: oberDataI?.adres_straat ?? null,
-          postcode: oberDataI?.adres_postcode ?? null,
-          stad: oberDataI?.adres_stad ?? null,
-          land: oberDataI?.adres_land ?? null,
-          aantalKaarten: kaartOrderI.aantalKaarten,
-          heeftVoorraad: kaartOrderI.heeftVoorraad,
-        }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
-      }
+      await Promise.allSettled([
+        oberDataI?.email
+          ? sendAbonnementActiefMail({
+              email: oberDataI.email,
+              naam: oberDataI.naam ?? oberId,
+              accountType: 'individueel',
+            }).catch(e => console.error('Welkomstmail mislukt:', e))
+          : Promise.resolve(),
+        kaartOrderI
+          ? sendAdminKaartorderNotificatie({
+              setId: kaartOrderI.setId,
+              accountType: 'individueel',
+              naam: oberDataI?.naam ?? oberId,
+              email: oberDataI?.email ?? '',
+              straat: oberDataI?.adres_straat ?? null,
+              postcode: oberDataI?.adres_postcode ?? null,
+              stad: oberDataI?.adres_stad ?? null,
+              land: oberDataI?.adres_land ?? null,
+              aantalKaarten: kaartOrderI.aantalKaarten,
+              heeftVoorraad: kaartOrderI.heeftVoorraad,
+            }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
+          : Promise.resolve(),
+      ])
 
       return NextResponse.json({ ok: true })
     }
@@ -236,27 +240,29 @@ export async function POST(req: NextRequest) {
         if (abonnementNuActief) {
           const oberSnapMC = await adminDb.collection('obers').doc(oberId).get()
           const oberDataMC = oberSnapMC.data()
-          if (oberDataMC?.email) {
-            sendAbonnementActiefMail({
-              email: oberDataMC.email,
-              naam: oberDataMC.naam ?? oberId,
-              accountType: 'individueel',
-            }).catch(e => console.error('Welkomstmail mislukt:', e))
-          }
-          if (kaartOrderMC) {
-            sendAdminKaartorderNotificatie({
-              setId: kaartOrderMC.setId,
-              accountType: 'individueel',
-              naam: oberDataMC?.naam ?? oberId,
-              email: oberDataMC?.email ?? '',
-              straat: oberDataMC?.adres_straat ?? null,
-              postcode: oberDataMC?.adres_postcode ?? null,
-              stad: oberDataMC?.adres_stad ?? null,
-              land: oberDataMC?.adres_land ?? null,
-              aantalKaarten: kaartOrderMC.aantalKaarten,
-              heeftVoorraad: kaartOrderMC.heeftVoorraad,
-            }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
-          }
+          await Promise.allSettled([
+            oberDataMC?.email
+              ? sendAbonnementActiefMail({
+                  email: oberDataMC.email,
+                  naam: oberDataMC.naam ?? oberId,
+                  accountType: 'individueel',
+                }).catch(e => console.error('Welkomstmail mislukt:', e))
+              : Promise.resolve(),
+            kaartOrderMC
+              ? sendAdminKaartorderNotificatie({
+                  setId: kaartOrderMC.setId,
+                  accountType: 'individueel',
+                  naam: oberDataMC?.naam ?? oberId,
+                  email: oberDataMC?.email ?? '',
+                  straat: oberDataMC?.adres_straat ?? null,
+                  postcode: oberDataMC?.adres_postcode ?? null,
+                  stad: oberDataMC?.adres_stad ?? null,
+                  land: oberDataMC?.adres_land ?? null,
+                  aantalKaarten: kaartOrderMC.aantalKaarten,
+                  heeftVoorraad: kaartOrderMC.heeftVoorraad,
+                }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
+              : Promise.resolve(),
+          ])
         }
       } else {
         // Actief account — geld staat al op ober's Mollie, geen verdere actie nodig
@@ -340,27 +346,29 @@ export async function POST(req: NextRequest) {
       const kaartOrderFallback = await wijsKaartCodesAutoToe(abonnementOberId, 'individueel')
       const oberSnapFB = await adminDb.collection('obers').doc(abonnementOberId).get()
       const oberDataFB = oberSnapFB.data()
-      if (oberDataFB?.email) {
-        sendAbonnementActiefMail({
-          email: oberDataFB.email,
-          naam: oberDataFB.naam ?? abonnementOberId,
-          accountType: 'individueel',
-        }).catch(e => console.error('Welkomstmail mislukt:', e))
-      }
-      if (kaartOrderFallback) {
-        sendAdminKaartorderNotificatie({
-          setId: kaartOrderFallback.setId,
-          accountType: 'individueel',
-          naam: oberDataFB?.naam ?? abonnementOberId,
-          email: oberDataFB?.email ?? '',
-          straat: oberDataFB?.adres_straat ?? null,
-          postcode: oberDataFB?.adres_postcode ?? null,
-          stad: oberDataFB?.adres_stad ?? null,
-          land: oberDataFB?.adres_land ?? null,
-          aantalKaarten: kaartOrderFallback.aantalKaarten,
-          heeftVoorraad: kaartOrderFallback.heeftVoorraad,
-        }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
-      }
+      await Promise.allSettled([
+        oberDataFB?.email
+          ? sendAbonnementActiefMail({
+              email: oberDataFB.email,
+              naam: oberDataFB.naam ?? abonnementOberId,
+              accountType: 'individueel',
+            }).catch(e => console.error('Welkomstmail mislukt:', e))
+          : Promise.resolve(),
+        kaartOrderFallback
+          ? sendAdminKaartorderNotificatie({
+              setId: kaartOrderFallback.setId,
+              accountType: 'individueel',
+              naam: oberDataFB?.naam ?? abonnementOberId,
+              email: oberDataFB?.email ?? '',
+              straat: oberDataFB?.adres_straat ?? null,
+              postcode: oberDataFB?.adres_postcode ?? null,
+              stad: oberDataFB?.adres_stad ?? null,
+              land: oberDataFB?.adres_land ?? null,
+              aantalKaarten: kaartOrderFallback.aantalKaarten,
+              heeftVoorraad: kaartOrderFallback.heeftVoorraad,
+            }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
+          : Promise.resolve(),
+      ])
     }
 
     return NextResponse.json({ ok: true })
