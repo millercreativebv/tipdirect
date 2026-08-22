@@ -89,6 +89,18 @@ type KaartOrder = {
   verzonden_op: string | null
 }
 
+type OnbetaaldBedrijf = {
+  id: string
+  naam: string
+  email: string
+  telefoon: string | null
+  adres_straat: string | null
+  adres_postcode: string | null
+  adres_stad: string | null
+  adres_land: string | null
+  aangemaakt_op: string | null
+}
+
 type Tab = 'abonnementen' | 'uitbetalingen' | 'partners' | 'kaarten' | 'instellingen'
 
 function DetailRegel({ label, waarde, mono = false }: { label: string; waarde: string | null | undefined; mono?: boolean }) {
@@ -146,6 +158,8 @@ export default function AdminDashboard() {
   const [openDetail, setOpenDetail] = useState<string | null>(null)
   const [verwijderBezig, setVerwijderBezig] = useState<string | null>(null)
   const [verwijderBevestig, setVerwijderBevestig] = useState<string | null>(null)
+  const [onbetaald, setOnbetaald] = useState<OnbetaaldBedrijf[]>([])
+  const [onbetaaldActiveerBezig, setOnbetaaldActiveerBezig] = useState<string | null>(null)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -154,14 +168,16 @@ export default function AdminDashboard() {
       const idToken = await getIdToken(user)
       setToken(idToken)
 
-      const [abRes, cfRes] = await Promise.all([
+      const [abRes, cfRes, onbRes] = await Promise.all([
         fetch('/api/admin/abonnementen', { headers: { Authorization: `Bearer ${idToken}` } }),
         fetch('/api/admin/config'),
+        fetch('/api/admin/onbetaald', { headers: { Authorization: `Bearer ${idToken}` } }),
       ])
 
       if (abRes.status === 403) { setToegansFout(true); setLaden(false); return }
 
       if (abRes.ok) setAbonnementen((await abRes.json()).abonnementen)
+      if (onbRes.ok) setOnbetaald((await onbRes.json()).accounts)
       if (cfRes.ok) {
         const data = await cfRes.json()
         setConfig(data)
@@ -428,6 +444,22 @@ export default function AdminDashboard() {
     setActiveerBezig(null)
   }
 
+  async function activeerOnbetaald(oberId: string) {
+    setOnbetaaldActiveerBezig(oberId)
+    const res = await fetch('/api/admin/activeer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ oberId }),
+    })
+    if (res.ok) {
+      // Verwijder uit onbetaald-lijst en herlaad abonnementen
+      setOnbetaald(prev => prev.filter(a => a.id !== oberId))
+      const abRes = await fetch('/api/admin/abonnementen', { headers: { Authorization: `Bearer ${token}` } })
+      if (abRes.ok) setAbonnementen((await abRes.json()).abonnementen)
+    }
+    setOnbetaaldActiveerBezig(null)
+  }
+
   async function verwijderAccount(oberId: string) {
     setVerwijderBezig(oberId)
     const res = await fetch('/api/admin/verwijder', {
@@ -571,6 +603,38 @@ export default function AdminDashboard() {
         {/* ── TAB: ABONNEMENTEN ── */}
         {tab === 'abonnementen' && (
           <>
+            {/* Onbetaalde bedrijfsaccounts */}
+            {onbetaald.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <h2 className="font-bold text-amber-800 mb-3 flex items-center gap-2">
+                  <span>⏳</span> Wacht op betaling ({onbetaald.length})
+                </h2>
+                <div className="space-y-2">
+                  {onbetaald.map(a => (
+                    <div key={a.id} className="bg-white rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-gray-900">{a.naam}</p>
+                        <p className="text-sm text-gray-500">{a.email}</p>
+                        {a.adres_straat && (
+                          <p className="text-xs text-gray-400">{a.adres_straat}, {a.adres_postcode} {a.adres_stad}, {a.adres_land}</p>
+                        )}
+                        {a.aangemaakt_op && (
+                          <p className="text-xs text-gray-400 mt-1">Aangemaakt: {new Date(a.aangemaakt_op).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => activeerOnbetaald(a.id)}
+                        disabled={onbetaaldActiveerBezig === a.id}
+                        className="flex-shrink-0 px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-all"
+                      >
+                        {onbetaaldActiveerBezig === a.id ? 'Bezig...' : 'Gratis activeren'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 { label: 'Actief', waarde: totaalActief, kleur: 'text-emerald-600' },
