@@ -133,6 +133,22 @@ async function wijsKaartCodesAutoToe(
         })
       }
       await batch.commit()
+
+      // Waarschuwing als voorraad onder drempel zakt
+      const DREMPEL = 10
+      const restSnap = await adminDb.collection('kaart_sets')
+        .where('status_type', '==', `${setType}_vrij`)
+        .count()
+        .get()
+      const resterend = restSnap.data().count
+      if (resterend <= DREMPEL) {
+        const { sendAdminVoorraadWaarschuwing } = await import('@/lib/mail')
+        sendAdminVoorraadWaarschuwing({
+          type: setType as 'bedrijf' | 'individueel',
+          resterend,
+          drempel: DREMPEL,
+        }).catch(e => console.error('Voorraad waarschuwingsmail mislukt:', e))
+      }
     }
 
     return { setId: setDoc?.id ?? null, aantalKaarten, heeftVoorraad: heeftSet, codes }

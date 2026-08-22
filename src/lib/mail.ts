@@ -409,3 +409,40 @@ export async function sendAdminKaartorderNotificatie(params: {
     html: mailHtml(inhoud),
   })
 }
+
+// ─── 5. Lage voorraad waarschuwing ───────────────────────────────────────────
+export async function sendAdminVoorraadWaarschuwing(params: {
+  type: 'bedrijf' | 'individueel'
+  resterend: number
+  drempel: number
+}) {
+  const { type, resterend, drempel } = params
+  const typeLabel = type === 'bedrijf' ? 'Bedrijf (5 kaarten/set)' : 'Individueel (2 kaarten/set)'
+
+  const inhoud = `
+    <h1 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111827;">
+      ⚠️ Lage kaartvoorraad
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      De voorraad van <strong>${typeLabel}</strong> is gedaald onder de drempel van ${drempel} sets.
+      Bestel nieuwe kaarten bij de fabrikant en genereer sets in het admin dashboard.
+    </p>
+
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${infoRegel('Type', typeLabel)}
+        ${infoRegel('Resterend vrij', `${resterend} set${resterend === 1 ? '' : 's'}`)}
+        ${infoRegel('Drempel', `${drempel} sets`)}
+      </table>
+    </div>
+
+    ${knop(`${BASE}/admin#kaarten`, 'Genereer nieuwe sets')}
+  `
+
+  await transporter.sendMail({
+    from: FROM,
+    to: ADMIN,
+    subject: `⚠️ Kaartvoorraad laag: nog ${resterend} ${type}-set${resterend === 1 ? '' : 's'} vrij`,
+    html: mailHtml(inhoud),
+  })
+}
