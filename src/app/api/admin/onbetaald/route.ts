@@ -10,27 +10,19 @@ export async function GET(req: NextRequest) {
   const adminSnap = await adminDb.collection('obers').doc(userId).get()
   if (!adminSnap.data()?.admin) return NextResponse.json({ fout: 'Geen toegang' }, { status: 403 })
 
-  // Alle bedrijfsaccounts zonder actief abonnement
+  // Haal alle bedrijfsaccounts op — geen samengestelde index nodig
   const snap = await adminDb
     .collection('obers')
     .where('account_type', '==', 'bedrijf')
-    .where('abonnement_actief', '==', false)
     .get()
 
-  // Ook accounts zonder abonnement_actief veld (aangemaakt vóór dit veld bestond)
-  const snapNull = await adminDb
-    .collection('obers')
-    .where('account_type', '==', 'bedrijf')
-    .where('abonnement_actief', '==', null)
-    .get()
-
-  const alleIds = new Set<string>()
   const accounts: object[] = []
 
-  for (const doc of [...snap.docs, ...snapNull.docs]) {
-    if (alleIds.has(doc.id)) continue
-    alleIds.add(doc.id)
+  for (const doc of snap.docs) {
     const d = doc.data()
+    // Toon alleen accounts die NIET actief zijn
+    if (d.abonnement_actief === true) continue
+
     accounts.push({
       id: doc.id,
       naam: d.naam ?? '',
