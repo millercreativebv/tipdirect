@@ -134,6 +134,7 @@ export async function POST(req: NextRequest) {
               land: oberData2?.adres_land ?? null,
               aantalKaarten: kaartOrder.aantalKaarten,
               heeftVoorraad: kaartOrder.heeftVoorraad,
+              codes: kaartOrder.codes,
             }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
           : Promise.resolve(),
       ])
@@ -185,6 +186,7 @@ export async function POST(req: NextRequest) {
               land: oberDataI?.adres_land ?? null,
               aantalKaarten: kaartOrderI.aantalKaarten,
               heeftVoorraad: kaartOrderI.heeftVoorraad,
+              codes: kaartOrderI.codes,
             }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
           : Promise.resolve(),
       ])
@@ -260,6 +262,7 @@ export async function POST(req: NextRequest) {
                   land: oberDataMC?.adres_land ?? null,
                   aantalKaarten: kaartOrderMC.aantalKaarten,
                   heeftVoorraad: kaartOrderMC.heeftVoorraad,
+                  codes: kaartOrderMC.codes,
                 }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
               : Promise.resolve(),
           ])
@@ -366,6 +369,7 @@ export async function POST(req: NextRequest) {
               land: oberDataFB?.adres_land ?? null,
               aantalKaarten: kaartOrderFallback.aantalKaarten,
               heeftVoorraad: kaartOrderFallback.heeftVoorraad,
+              codes: kaartOrderFallback.codes,
             }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
           : Promise.resolve(),
       ])
@@ -402,7 +406,7 @@ function berekenFeeVerdeling(bedragExBtwCenten: number) {
 async function wijsKaartCodesAutoToe(
   oberId: string,
   accountType: string
-): Promise<{ setId: string | null; aantalKaarten: number; heeftVoorraad: boolean } | null> {
+): Promise<{ setId: string | null; aantalKaarten: number; heeftVoorraad: boolean; codes: string[] } | null> {
   try {
     const bestaandSnap = await adminDb
       .collection('kaart_orders')
@@ -475,7 +479,7 @@ async function wijsKaartCodesAutoToe(
       await batch.commit()
     }
 
-    return { setId: setDoc?.id ?? null, aantalKaarten, heeftVoorraad: heeftSet }
+    return { setId: setDoc?.id ?? null, aantalKaarten, heeftVoorraad: heeftSet, codes }
   } catch (err) {
     console.error('Kaartcodes auto-toewijzen mislukt:', err)
     return null

@@ -34,32 +34,35 @@ export async function POST(req: NextRequest) {
   })
 
   // Wijs kaartcodes toe en stuur admin kaartorder-melding
-  const kaartOrder = await wijsKaartCodesAutoToe(oberId)
+  const oberSnap2 = await adminDb.collection('obers').doc(oberId).get()
+  const ober2 = oberSnap2.data()
+  const accountType = (ober2?.account_type ?? 'bedrijf') as string
+  const kaartOrder = await wijsKaartCodesAutoToe(oberId, accountType)
   if (kaartOrder) {
-    const oberSnap = await adminDb.collection('obers').doc(oberId).get()
-    const ober = oberSnap.data()
     sendAdminKaartorderNotificatie({
       setId: kaartOrder.setId,
-      accountType: 'bedrijf',
-      naam: ober?.naam ?? oberId,
-      email: ober?.email ?? '',
-      straat: ober?.adres_straat ?? null,
-      postcode: ober?.adres_postcode ?? null,
-      stad: ober?.adres_stad ?? null,
-      land: ober?.adres_land ?? null,
+      accountType,
+      naam: ober2?.naam ?? oberId,
+      email: ober2?.email ?? '',
+      straat: ober2?.adres_straat ?? null,
+      postcode: ober2?.adres_postcode ?? null,
+      stad: ober2?.adres_stad ?? null,
+      land: ober2?.adres_land ?? null,
       aantalKaarten: kaartOrder.aantalKaarten,
       heeftVoorraad: kaartOrder.heeftVoorraad,
+      codes: kaartOrder.codes,
     }).catch(e => console.error('Admin kaartorder mail mislukt:', e))
   }
 
   return NextResponse.json({ ok: true })
 }
 
-// Wijs de eerstvolgende vrije bedrijfsset toe en maak een kaart_order aan.
+// Wijs de eerstvolgende vrije set toe en maak een kaart_order aan.
 // Geeft null terug als er al een inclusief order bestaat.
 async function wijsKaartCodesAutoToe(
-  oberId: string
-): Promise<{ setId: string | null; aantalKaarten: number; heeftVoorraad: boolean } | null> {
+  oberId: string,
+  accountType = 'bedrijf'
+): Promise<{ setId: string | null; aantalKaarten: number; heeftVoorraad: boolean; codes: string[] } | null> {
   try {
     const bestaandSnap = await adminDb
       .collection('kaart_orders')
@@ -75,11 +78,13 @@ async function wijsKaartCodesAutoToe(
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://tipdirect.be'
     const redirectUrl = `${baseUrl}/${ober.gebruikersnaam}`
+    const setType = accountType === 'bedrijf' ? 'bedrijf' : 'individueel'
+    const defaultAantal = setType === 'bedrijf' ? 5 : 2
     const nu = new Date().toISOString()
 
     const setSnap = await adminDb
       .collection('kaart_sets')
-      .where('status_type', '==', 'bedrijf_vrij')
+      .where('status_type', '==', `${setType}_vrij`)
       .limit(1)
       .get()
 
@@ -87,13 +92,13 @@ async function wijsKaartCodesAutoToe(
     const setDoc = heeftSet ? setSnap.docs[0] : null
     const setData = setDoc ? setDoc.data() : null
     const codes: string[] = setData?.codes ?? []
-    const aantalKaarten = heeftSet ? codes.length : 5
+    const aantalKaarten = heeftSet ? codes.length : defaultAantal
 
     const orderRef = adminDb.collection('kaart_orders').doc()
     await orderRef.set({
       ober_id: oberId,
       naam: ober.naam ?? '',
-      account_type: 'bedrijf',
+      account_type: accountType,
       aantal: aantalKaarten,
       type: 'inclusief',
       status: heeftSet ? 'aangevraagd' : 'wacht_op_voorraad',
@@ -112,7 +117,7 @@ async function wijsKaartCodesAutoToe(
       const batch = adminDb.batch()
       batch.update(setDoc.ref, {
         status: 'toegewezen',
-        status_type: 'bedrijf_toegewezen',
+        status_type: `${setType}_toegewezen`,
         toegewezen_op: nu,
         ober_id: oberId,
         kaart_order_id: orderRef.id,
@@ -130,7 +135,7 @@ async function wijsKaartCodesAutoToe(
       await batch.commit()
     }
 
-    return { setId: setDoc?.id ?? null, aantalKaarten, heeftVoorraad: heeftSet }
+    return { setId: setDoc?.id ?? null, aantalKaarten, heeftVoorraad: heeftSet, codes }
   } catch (err) {
     console.error('Kaartcodes auto-toewijzen mislukt:', err)
     return null

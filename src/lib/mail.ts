@@ -332,8 +332,9 @@ export async function sendAdminKaartorderNotificatie(params: {
   aantalKaarten: number
   heeftVoorraad: boolean
   orderType?: 'inclusief' | 'bijbestelling'
+  codes?: string[]
 }) {
-  const { setId, accountType, naam, email, straat, postcode, stad, land, aantalKaarten, heeftVoorraad, orderType = 'inclusief' } = params
+  const { setId, accountType, naam, email, straat, postcode, stad, land, aantalKaarten, heeftVoorraad, orderType = 'inclusief', codes = [] } = params
 
   const isBijbestelling = orderType === 'bijbestelling'
   const adresRegel = [straat, `${postcode ?? ''} ${stad ?? ''}`.trim(), land]
@@ -343,6 +344,24 @@ export async function sendAdminKaartorderNotificatie(params: {
   const setLabel = setId
     ? `<span style="display:inline-block;background:${MERK};color:#fff;font-weight:700;font-size:16px;padding:6px 16px;border-radius:8px;letter-spacing:1px;">${setId}</span>`
     : `<span style="color:#6b7280;font-style:italic;">${isBijbestelling ? 'Handmatig te verwerken' : 'Geen voorraad — staat op wacht'}</span>`
+
+  // Tabel met codes en NFC/QR-URLs voor de partner
+  const codesTabel = codes.length > 0 ? `
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#9ca3af;letter-spacing:0.08em;text-transform:uppercase;">NFC / QR codes voor de kaarten</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>
+          <td style="font-size:11px;font-weight:700;color:#6b7280;padding:4px 8px 8px 0;border-bottom:1px solid #d1fae5;">Code</td>
+          <td style="font-size:11px;font-weight:700;color:#6b7280;padding:4px 0 8px 0;border-bottom:1px solid #d1fae5;">URL (NFC programmeren / QR genereren)</td>
+        </tr>
+        ${codes.map(c => `
+        <tr>
+          <td style="font-size:13px;font-family:monospace;font-weight:700;color:#111827;padding:8px 8px 8px 0;border-bottom:1px solid #f0fdf4;">${c}</td>
+          <td style="font-size:12px;font-family:monospace;color:#047857;padding:8px 0;border-bottom:1px solid #f0fdf4;">${BASE}/c/${c}</td>
+        </tr>`).join('')}
+      </table>
+    </div>
+  ` : ''
 
   const inhoud = `
     <h1 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111827;">
@@ -373,6 +392,8 @@ export async function sendAdminKaartorderNotificatie(params: {
         ${infoRegel('E-mail', email)}
       </table>
     </div>
+
+    ${codesTabel}
 
     ${knop(`${BASE}/admin`, 'Naar admin dashboard')}
   `
