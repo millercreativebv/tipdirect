@@ -101,7 +101,17 @@ type OnbetaaldBedrijf = {
   aangemaakt_op: string | null
 }
 
-type Tab = 'abonnementen' | 'uitbetalingen' | 'partners' | 'kaarten' | 'instellingen'
+type Tab = 'abonnementen' | 'uitbetalingen' | 'partners' | 'kaarten' | 'omzet' | 'instellingen'
+
+type OmzetData = {
+  totaalCenten: number
+  totaalNettoCenten: number
+  aantalTransacties: number
+  gemiddeldCenten: number
+  uniekeObers: number
+  nieuwsbriefAbonnees: number
+  maanden: { maand: string; centen: number }[]
+}
 
 function DetailRegel({ label, waarde, mono = false }: { label: string; waarde: string | null | undefined; mono?: boolean }) {
   if (!waarde) return null
@@ -160,6 +170,8 @@ export default function AdminDashboard() {
   const [verwijderBevestig, setVerwijderBevestig] = useState<string | null>(null)
   const [onbetaald, setOnbetaald] = useState<OnbetaaldBedrijf[]>([])
   const [onbetaaldActiveerBezig, setOnbetaaldActiveerBezig] = useState<string | null>(null)
+  const [omzet, setOmzet] = useState<OmzetData | null>(null)
+  const [omzetLaden, setOmzetLaden] = useState(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -332,6 +344,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (tab === 'kaarten' && token) laadKaartOrders()
   }, [tab, token]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (tab === 'omzet' && token && !omzet) laadOmzet()
+  }, [tab, token]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function laadOmzet() {
+    setOmzetLaden(true)
+    const res = await fetch('/api/admin/omzet', { headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) setOmzet(await res.json())
+    setOmzetLaden(false)
+  }
 
   async function genereerKaartCodes() {
     setKaartGenereerBezig(true)
@@ -583,6 +606,7 @@ export default function AdminDashboard() {
             { id: 'uitbetalingen', label: `Uitbetalingen${uitbetalingen.length > 0 ? ` (${uitbetalingen.length})` : ''}` },
             { id: 'partners', label: 'Partners' },
             { id: 'kaarten', label: 'Kaarten' },
+            { id: 'omzet', label: 'Omzet' },
             { id: 'instellingen', label: 'Instellingen' },
           ] as { id: Tab; label: string }[]).map(t => (
             <button
@@ -1350,6 +1374,104 @@ export default function AdminDashboard() {
               </button>
               {cronResultaat && <p className="text-sm text-gray-600 mt-3">{cronResultaat}</p>}
             </div>
+          </>
+        )}
+
+        {/* ── TAB: OMZET ── */}
+        {tab === 'omzet' && (
+          <>
+            {omzetLaden && (
+              <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+
+            {!omzetLaden && omzet && (
+              <>
+                {/* Hoofdcijfers */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-white rounded-xl shadow-sm p-4">
+                    <p className="text-xs text-gray-400 font-medium mb-1">Totale fooiomzet</p>
+                    <p className="text-2xl font-bold text-gray-900">{euro(omzet.totaalCenten)}</p>
+                    <p className="text-xs text-gray-400 mt-1">bruto ontvangen door gebruikers</p>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm p-4">
+                    <p className="text-xs text-gray-400 font-medium mb-1">Netto uitbetaald</p>
+                    <p className="text-2xl font-bold text-gray-900">{euro(omzet.totaalNettoCenten)}</p>
+                    <p className="text-xs text-gray-400 mt-1">na Mollie-transactiekosten</p>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm p-4">
+                    <p className="text-xs text-gray-400 font-medium mb-1">Transacties</p>
+                    <p className="text-2xl font-bold text-gray-900">{omzet.aantalTransacties.toLocaleString('nl-BE')}</p>
+                    <p className="text-xs text-gray-400 mt-1">fooibetalingen totaal</p>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm p-4">
+                    <p className="text-xs text-gray-400 font-medium mb-1">Gemiddelde fooi</p>
+                    <p className="text-2xl font-bold text-gray-900">{euro(omzet.gemiddeldCenten)}</p>
+                    <p className="text-xs text-gray-400 mt-1">per transactie</p>
+                  </div>
+                </div>
+
+                {/* Secondaire cijfers */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-4">
+                    <span className="text-3xl">👤</span>
+                    <div>
+                      <p className="text-xs text-gray-400 font-medium">Gebruikers met fooien</p>
+                      <p className="text-xl font-bold text-gray-900">{omzet.uniekeObers}</p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-4">
+                    <span className="text-3xl">📧</span>
+                    <div>
+                      <p className="text-xs text-gray-400 font-medium">Nieuwsbrief-abonnees</p>
+                      <p className="text-xl font-bold text-gray-900">{omzet.nieuwsbriefAbonnees}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Maandoverzicht */}
+                {omzet.maanden.length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm p-5">
+                    <h2 className="font-bold text-gray-900 mb-4">Fooiomzet per maand</h2>
+                    <div className="space-y-2">
+                      {[...omzet.maanden].reverse().map(({ maand, centen }) => {
+                        const maxCenten = Math.max(...omzet.maanden.map(m => m.centen))
+                        const breedte = maxCenten > 0 ? Math.round((centen / maxCenten) * 100) : 0
+                        const [jaar, maandNr] = maand.split('-')
+                        const maandNaam = new Date(Number(jaar), Number(maandNr) - 1).toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' })
+                        return (
+                          <div key={maand} className="flex items-center gap-3">
+                            <span className="text-xs text-gray-500 w-28 flex-shrink-0 capitalize">{maandNaam}</span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                              <div
+                                className="bg-brand-500 h-2 rounded-full transition-all"
+                                style={{ width: `${breedte}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-semibold text-gray-700 w-16 text-right">{euro(centen)}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <button
+                      onClick={() => laadOmzet()}
+                      className="mt-4 text-xs text-brand-500 hover:text-brand-700 font-medium"
+                    >
+                      ↺ Vernieuwen
+                    </button>
+                  </div>
+                )}
+
+                {omzet.aantalTransacties === 0 && (
+                  <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+                    <p className="text-4xl mb-3">📊</p>
+                    <p className="font-semibold text-gray-700">Nog geen fooitransacties</p>
+                    <p className="text-sm text-gray-400 mt-1">Zodra gebruikers fooien ontvangen verschijnen ze hier.</p>
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
 

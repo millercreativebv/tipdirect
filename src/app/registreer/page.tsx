@@ -23,6 +23,7 @@ export default function RegistreerPagina() {
   const [fout, setFout] = useState('')
   const [abonnementsBedragBedrijf, setAbonnementsBedragBedrijf] = useState(7500)
   const [betaalBezig, setBetaalBezig] = useState(false)
+  const [nieuwsbriefAkkoord, setNieuwsbriefAkkoord] = useState(false)
 
   // Individueel
   const [naam, setNaam] = useState('')
@@ -205,6 +206,17 @@ export default function RegistreerPagina() {
             headers: { Authorization: `Bearer ${token}` },
           })
         ).catch(e => console.error('Registratiemails mislukt:', e))
+      }
+
+      // Nieuwsbrief-aanmelding opslaan in aparte collectie
+      if (nieuwsbriefAkkoord) {
+        setDoc(doc(db, 'nieuwsbrief_abonnees', userId), {
+          email,
+          naam: accountType === 'bedrijf' ? bedrijfsnaam : naam,
+          account_type: accountType,
+          aangemeld_op: new Date().toISOString(),
+          actief: true,
+        }).catch(e => console.error('Nieuwsbrief-aanmelding mislukt:', e))
       }
 
       setStap(accountType === 'bedrijf' ? 'betaling' : 'klaar')
@@ -424,6 +436,17 @@ export default function RegistreerPagina() {
                 placeholder="Minimaal 6 tekens"
               />
             </div>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={nieuwsbriefAkkoord}
+                onChange={e => setNieuwsbriefAkkoord(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-brand-500 flex-shrink-0"
+              />
+              <span className="text-xs text-gray-500 leading-relaxed">
+                Ja, ik wil de TipDirect-nieuwsbrief ontvangen met updates, tips en aanbiedingen.
+              </span>
+            </label>
             {fout && <div className="bg-red-50 border border-red-200 rounded-xl p-3"><p className="text-red-600 text-sm font-medium">{fout}</p></div>}
             <button type="submit" disabled={laden} className="w-full py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 text-white font-bold rounded-xl transition-all">
               {laden ? 'Bezig...' : 'Volgende'}
