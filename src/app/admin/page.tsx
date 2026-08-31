@@ -202,6 +202,16 @@ export default function AdminDashboard() {
     return () => unsub()
   }, [])
 
+  async function versToken(): Promise<string> {
+    // Haal altijd een vers (of gecached maar niet-verlopen) token op.
+    // getIdToken() refresht automatisch als het token bijna verlopen is.
+    const user = auth.currentUser
+    if (!user) return token
+    const nieuw = await getIdToken(user)
+    setToken(nieuw)
+    return nieuw
+  }
+
   async function laadPartners(idToken: string) {
     setPartnerLaden(true)
     const res = await fetch('/api/admin/partner', { headers: { Authorization: `Bearer ${idToken}` } })
@@ -217,9 +227,10 @@ export default function AdminDashboard() {
     e.preventDefault()
     setPartnerAanmakenBezig(true)
     setPartnerMelding('')
+    const huidigToken = await versToken()
     const res = await fetch('/api/admin/partner', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${huidigToken}` },
       body: JSON.stringify({ naam: nieuwPartnerNaam, email: nieuwPartnerEmail, iban: nieuwPartnerIban, land: 'BE' }),
     })
     const data = await res.json()
@@ -228,7 +239,7 @@ export default function AdminDashboard() {
       setNieuwPartnerNaam('')
       setNieuwPartnerEmail('')
       setNieuwPartnerIban('')
-      laadPartners(token)
+      laadPartners(huidigToken)
     } else {
       setPartnerMelding(`Fout: ${data.fout}`)
     }
