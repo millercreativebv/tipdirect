@@ -446,3 +446,48 @@ export async function sendAdminVoorraadWaarschuwing(params: {
     html: mailHtml(inhoud),
   })
 }
+
+
+// ─── 6. Partner welkomstmail (reset-link) ────────────────────────────────────
+export async function sendPartnerWelkomMail(params: {
+  naam: string
+  email: string
+  resetLink: string
+}) {
+  const { naam, email, resetLink } = params
+
+  const inhoud = `
+    <h1 style="margin:0 0 4px;font-size:22px;font-weight:800;color:#111827;">
+      Welkom bij TipDirect, ${naam}!
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      Je bent toegevoegd als partner. Stel hieronder je wachtwoord in om toegang te krijgen
+      tot het partnerportaal.
+    </p>
+
+    <div style="background:#fdf4f8;border:1px solid #f3d0e4;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${infoRegel('Naam', naam)}
+        ${infoRegel('E-mail', email)}
+        ${infoRegel('Portaal', `${BASE}/partner`)}
+      </table>
+    </div>
+
+    <p style="margin:0 0 16px;font-size:13px;color:#6b7280;">
+      De link hieronder is 24 uur geldig. Klik erop om je wachtwoord in te stellen:
+    </p>
+
+    ${knop(resetLink, 'Wachtwoord instellen →')}
+
+    <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">
+      Als je deze mail niet verwacht had, kun je hem veilig negeren.
+    </p>
+  `
+
+  await transporter.sendMail({
+    from: FROM,
+    to: email,
+    subject: `Welkom bij TipDirect — stel je wachtwoord in`,
+    html: mailHtml(inhoud),
+  })
+}

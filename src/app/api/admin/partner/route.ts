@@ -72,8 +72,11 @@ export async function POST(req: NextRequest) {
 
   await adminDb.collection('partners').doc(userRecord.uid).set(partnerData)
 
-  // Wachtwoord-reset sturen zodat partner zelf een wachtwoord instelt
+  // Wachtwoord-reset genereren en direct naar de partner mailen
   const resetLink = await adminAuth.generatePasswordResetLink(email)
+  const { sendPartnerWelkomMail } = await import('@/lib/mail')
+  sendPartnerWelkomMail({ naam, email, resetLink })
+    .catch(e => console.error('Partner welkomstmail mislukt:', e))
 
-  return NextResponse.json({ ok: true, partnerId: userRecord.uid, resetLink })
+  return NextResponse.json({ ok: true, partnerId: userRecord.uid })
 }

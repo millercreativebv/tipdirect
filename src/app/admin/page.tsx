@@ -235,7 +235,7 @@ export default function AdminDashboard() {
     })
     const data = await res.json()
     if (res.ok) {
-      setPartnerMelding(`✅ Partner aangemaakt. Reset-link: ${data.resetLink}`)
+      setPartnerMelding(`✅ Partner aangemaakt. Welkomstmail met wachtwoord-link verzonden naar ${nieuwPartnerEmail}.`)
       setNieuwPartnerNaam('')
       setNieuwPartnerEmail('')
       setNieuwPartnerIban('')
