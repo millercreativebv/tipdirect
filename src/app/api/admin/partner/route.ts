@@ -39,6 +39,27 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ partners })
 }
 
+// PATCH — stuur welkomstmail opnieuw
+export async function PATCH(req: NextRequest) {
+  const userId = await getUserId(req)
+  if (!userId || !(await isAdmin(userId))) {
+    return NextResponse.json({ fout: 'Geen toegang' }, { status: 403 })
+  }
+
+  const { partnerId } = await req.json()
+  if (!partnerId) return NextResponse.json({ fout: 'partnerId verplicht' }, { status: 400 })
+
+  const snap = await adminDb.collection('partners').doc(partnerId).get()
+  if (!snap.exists) return NextResponse.json({ fout: 'Partner niet gevonden' }, { status: 404 })
+
+  const { naam, email } = snap.data()!
+  const resetLink = await adminAuth.generatePasswordResetLink(email)
+  const { sendPartnerWelkomMail } = await import('@/lib/mail')
+  await sendPartnerWelkomMail({ naam, email, resetLink })
+
+  return NextResponse.json({ ok: true })
+}
+
 // POST — maak een nieuwe partner aan
 export async function POST(req: NextRequest) {
   const userId = await getUserId(req)

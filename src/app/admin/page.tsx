@@ -153,6 +153,7 @@ export default function AdminDashboard() {
   const [uitbPartnerMelding, setUitbPartnerMelding] = useState('')
   const [commissieBevestig, setCommissieBevestig] = useState<string | null>(null)
   const [commissieBezig, setCommissieBezig] = useState<string | null>(null)
+  const [welkomstmailBezig, setWelkomstmailBezig] = useState<string | null>(null)
   const [kaartOrders, setKaartOrders] = useState<KaartOrder[]>([])
   const [kaartOrdersLaden, setKaartOrdersLaden] = useState(false)
   const [kaartOrderFilter, setKaartOrderFilter] = useState<string>('alle')
@@ -259,6 +260,23 @@ export default function AdminDashboard() {
       ? 'Geen openstaand tegoed om uit te betalen.'
       : `${data.verwerkt} uitbetaling(en) geïnitieerd via Mollie.`)
     setUitbPartnerBezig(false)
+  }
+
+  async function stuurWelkomstmail(partnerId: string) {
+    setWelkomstmailBezig(partnerId)
+    const huidigToken = await versToken()
+    const res = await fetch('/api/admin/partner', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${huidigToken}` },
+      body: JSON.stringify({ partnerId }),
+    })
+    if (res.ok) {
+      setUitbPartnerMelding('✅ Welkomstmail opnieuw verzonden.')
+    } else {
+      const d = await res.json()
+      setUitbPartnerMelding(`Fout: ${d.fout}`)
+    }
+    setWelkomstmailBezig(null)
   }
 
   async function commissieVoldaan(partnerId: string) {
@@ -1062,6 +1080,14 @@ export default function AdminDashboard() {
                             {p.tegoed_open === 0 ? 'Commissie voldaan ✓' : 'Commissie voldaan markeren'}
                           </button>
                         )}
+                        <button
+                          onClick={() => stuurWelkomstmail(p.id)}
+                          disabled={welkomstmailBezig === p.id}
+                          className="px-4 py-2 border-2 border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:border-brand-400 hover:text-brand-600 disabled:opacity-50 transition-all"
+                          title="Welkomstmail opnieuw sturen"
+                        >
+                          {welkomstmailBezig === p.id ? '...' : '📧'}
+                        </button>
                         <button
                           onClick={() => downloadPartnerCsv(p)}
                           className="px-4 py-2 border-2 border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:border-brand-400 hover:text-brand-600 transition-all"
