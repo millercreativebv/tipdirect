@@ -1,11 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { vertalingen, type Taal } from '@/lib/translations'
 import EarningsCalculator from './EarningsCalculator'
 import FAQ from './FAQ'
+
+// Simpele, cookievrije bezoekersteller. Eén "nieuwe sessie" per browsertab/dag,
+// zodat ververst/opnieuw bezoeken niet dubbel telt.
+function registreerBezoek() {
+  try {
+    const sleutel = 'td_bezoek_' + new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Brussels' }).format(new Date())
+    const nieuweSessie = !sessionStorage.getItem(sleutel)
+    if (nieuweSessie) sessionStorage.setItem(sleutel, '1')
+
+    const payload = JSON.stringify({ nieuweSessie, referrer: document.referrer })
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/track-bezoek', new Blob([payload], { type: 'application/json' }))
+    } else {
+      fetch('/api/track-bezoek', { method: 'POST', body: payload, keepalive: true })
+    }
+  } catch {
+    // Bezoekersstatistieken mogen de pagina nooit breken.
+  }
+}
 
 const TALEN: { code: Taal; label: string; vlag: string }[] = [
   { code: 'nl', label: 'NL', vlag: '🇳🇱' },
@@ -18,6 +37,10 @@ export default function LandingPagina() {
   const [taal, setTaal] = useState<Taal>('nl')
   const [menuOpen, setMenuOpen] = useState(false)
   const t = vertalingen[taal]
+
+  useEffect(() => {
+    registreerBezoek()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-brand-50 to-white">
