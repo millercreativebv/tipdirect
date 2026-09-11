@@ -65,6 +65,11 @@ export default function QrKaartPagina() {
           .geen-print { display: none !important; }
           .alleen-print { display: block !important; }
           body { margin: 0; padding: 0; }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
           .print-pagina {
             width: 210mm;
             min-height: 297mm;
