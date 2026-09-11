@@ -3,15 +3,13 @@ import { getUserId } from '@/lib/auth'
 import { adminDb } from '@/lib/firebase-admin'
 import { haalBezoekStatistieken } from '@/lib/bezoekstatistieken'
 
-async function isAdmin(userId: string): Promise<boolean> {
-  const snap = await adminDb.collection('obers').doc(userId).get()
-  return snap.data()?.admin === true
-}
-
 export async function GET(req: NextRequest) {
   const userId = await getUserId(req)
-  if (!userId || !(await isAdmin(userId))) {
-    return NextResponse.json({ fout: 'Geen toegang' }, { status: 403 })
+  if (!userId) return NextResponse.json({ fout: 'Niet ingelogd' }, { status: 401 })
+
+  const partnerSnap = await adminDb.collection('partners').doc(userId).get()
+  if (!partnerSnap.exists) {
+    return NextResponse.json({ fout: 'Geen partner account' }, { status: 403 })
   }
 
   try {

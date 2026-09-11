@@ -5,6 +5,9 @@ import { auth } from '@/lib/firebase'
 import { onAuthStateChanged, getIdToken, signOut } from 'firebase/auth'
 import { euro } from '@/lib/utils'
 import Image from 'next/image'
+import BezoekersOverzicht from '@/app/components/BezoekersOverzicht'
+
+type Tab = 'overzicht' | 'bezoekers'
 
 type TegoedRegel = {
   id: string
@@ -26,14 +29,17 @@ export default function PartnerDashboard() {
   const [data, setData] = useState<PartnerData | null>(null)
   const [laden, setLaden] = useState(true)
   const [toegangFout, setToegansFout] = useState(false)
+  const [token, setToken] = useState('')
+  const [tab, setTab] = useState<Tab>('overzicht')
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { window.location.href = '/inloggen'; return }
 
-      const token = await getIdToken(user)
+      const idToken = await getIdToken(user)
+      setToken(idToken)
       const res = await fetch('/api/partner', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${idToken}` },
       })
 
       if (res.status === 403) { setToegansFout(true); setLaden(false); return }
@@ -121,10 +127,32 @@ export default function PartnerDashboard() {
           <p className="font-bold text-gray-900">{partner.naam}</p>
           <p className="text-sm text-gray-400">{partner.email}</p>
         </div>
+        <div className="max-w-lg mx-auto mt-4 flex gap-1 bg-gray-100 p-1 rounded-xl">
+          {([
+            { id: 'overzicht', label: 'Overzicht' },
+            { id: 'bezoekers', label: 'Bezoekers' },
+          ] as { id: Tab; label: string }[]).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                tab === t.id ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
 
+        {tab === 'bezoekers' && (
+          <BezoekersOverzicht token={token} apiPath="/api/partner/bezoekers" />
+        )}
+
+        {tab === 'overzicht' && (
+        <>
         {/* Tegoed kaarten */}
         <div className="grid grid-cols-2 gap-3">
           <div className={`rounded-xl p-4 ${openTegoed > 0 ? 'bg-brand-500 text-white' : 'bg-gray-100'}`}>
@@ -223,6 +251,8 @@ export default function PartnerDashboard() {
             <p className="text-sm text-red-500">Nog geen IBAN ingesteld — neem contact op met TipDirect.</p>
           )}
         </div>
+        </>
+        )}
 
       </div>
     </div>

@@ -6,6 +6,7 @@ import { onAuthStateChanged, getIdToken } from 'firebase/auth'
 import { euro } from '@/lib/utils'
 import Link from 'next/link'
 import Image from 'next/image'
+import BezoekersOverzicht from '@/app/components/BezoekersOverzicht'
 
 type Abonnement = {
   id: string
@@ -113,16 +114,6 @@ type OmzetData = {
   maanden: { maand: string; centen: number }[]
 }
 
-type BezoekData = {
-  vandaag: number
-  week: number
-  maand: number
-  totaal: number
-  totaalBezoekers: number
-  dagen: { datum: string; paginaweergaven: number; bezoekers: number }[]
-  bronnen: { domein: string; aantal: number }[]
-}
-
 function DetailRegel({ label, waarde, mono = false }: { label: string; waarde: string | null | undefined; mono?: boolean }) {
   if (!waarde) return null
   return (
@@ -183,9 +174,6 @@ export default function AdminDashboard() {
   const [onbetaaldActiveerBezig, setOnbetaaldActiveerBezig] = useState<string | null>(null)
   const [omzet, setOmzet] = useState<OmzetData | null>(null)
   const [omzetLaden, setOmzetLaden] = useState(false)
-  const [bezoekData, setBezoekData] = useState<BezoekData | null>(null)
-  const [bezoekLaden, setBezoekLaden] = useState(false)
-  const [bezoekFout, setBezoekFout] = useState(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -390,19 +378,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (tab === 'omzet' && token && !omzet) laadOmzet()
   }, [tab, token]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (tab === 'bezoekers' && token && !bezoekData) laadBezoekers()
-  }, [tab, token]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function laadBezoekers() {
-    setBezoekLaden(true)
-    setBezoekFout(false)
-    const res = await fetch('/api/admin/bezoekers', { headers: { Authorization: `Bearer ${token}` } })
-    if (res.ok) setBezoekData(await res.json())
-    else setBezoekFout(true)
-    setBezoekLaden(false)
-  }
 
   async function laadOmzet() {
     setOmzetLaden(true)
@@ -1540,111 +1515,7 @@ export default function AdminDashboard() {
         )}
 
         {tab === 'bezoekers' && (
-          <>
-            {bezoekFout && !bezoekLaden && (
-              <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-                <p className="text-4xl mb-3">⚠️</p>
-                <p className="font-semibold text-gray-700">Kon bezoekersstatistieken niet laden</p>
-                <button
-                  onClick={() => laadBezoekers()}
-                  className="mt-4 text-xs text-brand-500 hover:text-brand-700 font-medium"
-                >
-                  ↺ Opnieuw proberen
-                </button>
-              </div>
-            )}
-
-            {bezoekLaden && (
-              <div className="flex justify-center py-12">
-                <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-
-            {!bezoekLaden && bezoekData && (
-              <>
-                <p className="text-xs text-gray-400 -mt-1">Bezoekers van de landingspagina (tipdirect.be)</p>
-
-                {/* Hoofdcijfers */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-white rounded-xl shadow-sm p-4">
-                    <p className="text-xs text-gray-400 font-medium mb-1">Vandaag</p>
-                    <p className="text-2xl font-bold text-gray-900">{bezoekData.vandaag.toLocaleString('nl-BE')}</p>
-                    <p className="text-xs text-gray-400 mt-1">paginaweergaven</p>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm p-4">
-                    <p className="text-xs text-gray-400 font-medium mb-1">Laatste 7 dagen</p>
-                    <p className="text-2xl font-bold text-gray-900">{bezoekData.week.toLocaleString('nl-BE')}</p>
-                    <p className="text-xs text-gray-400 mt-1">paginaweergaven</p>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm p-4">
-                    <p className="text-xs text-gray-400 font-medium mb-1">Laatste 30 dagen</p>
-                    <p className="text-2xl font-bold text-gray-900">{bezoekData.maand.toLocaleString('nl-BE')}</p>
-                    <p className="text-xs text-gray-400 mt-1">paginaweergaven</p>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm p-4">
-                    <p className="text-xs text-gray-400 font-medium mb-1">Totaal</p>
-                    <p className="text-2xl font-bold text-gray-900">{bezoekData.totaal.toLocaleString('nl-BE')}</p>
-                    <p className="text-xs text-gray-400 mt-1">{bezoekData.totaalBezoekers.toLocaleString('nl-BE')} unieke bezoeken</p>
-                  </div>
-                </div>
-
-                {/* Bezoekers per dag */}
-                {bezoekData.dagen.length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm p-5">
-                    <h2 className="font-bold text-gray-900 mb-4">Paginaweergaven per dag (laatste 30 dagen)</h2>
-                    <div className="space-y-2">
-                      {[...bezoekData.dagen].reverse().map(({ datum, paginaweergaven }) => {
-                        const maxWeergaven = Math.max(...bezoekData.dagen.map(d => d.paginaweergaven), 1)
-                        const breedte = Math.round((paginaweergaven / maxWeergaven) * 100)
-                        const datumLabel = new Date(datum + 'T00:00:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })
-                        return (
-                          <div key={datum} className="flex items-center gap-3">
-                            <span className="text-xs text-gray-500 w-16 flex-shrink-0">{datumLabel}</span>
-                            <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
-                              <div
-                                className="bg-brand-500 h-2 rounded-full transition-all"
-                                style={{ width: `${breedte}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-semibold text-gray-700 w-10 text-right">{paginaweergaven}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <button
-                      onClick={() => laadBezoekers()}
-                      className="mt-4 text-xs text-brand-500 hover:text-brand-700 font-medium"
-                    >
-                      ↺ Vernieuwen
-                    </button>
-                  </div>
-                )}
-
-                {/* Populairste bronnen */}
-                {bezoekData.bronnen.length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm p-5">
-                    <h2 className="font-bold text-gray-900 mb-4">Populairste bronnen</h2>
-                    <div className="space-y-2">
-                      {bezoekData.bronnen.map(({ domein, aantal }) => (
-                        <div key={domein} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">{domein === 'direct' ? 'Direct (geen verwijzer)' : domein}</span>
-                          <span className="font-semibold text-gray-900">{aantal.toLocaleString('nl-BE')}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {bezoekData.totaal === 0 && (
-                  <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-                    <p className="text-4xl mb-3">📈</p>
-                    <p className="font-semibold text-gray-700">Nog geen bezoekers geregistreerd</p>
-                    <p className="text-sm text-gray-400 mt-1">Zodra bezoekers de landingspagina openen verschijnen ze hier.</p>
-                  </div>
-                )}
-              </>
-            )}
-          </>
+          <BezoekersOverzicht token={token} apiPath="/api/admin/bezoekers" />
         )}
 
       </div>
