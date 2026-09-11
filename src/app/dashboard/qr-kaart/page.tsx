@@ -249,9 +249,17 @@ function Pasje({ ober, qrDataUrl, schaal }: { ober: Ober; qrDataUrl: string; sch
         alignItems: 'center',
         flexShrink: 0,
       }}>
-        <span style={{ color: 'white', fontWeight: 700, fontSize: s(5.5), letterSpacing: '0.02em' }}>
-          TipDirect
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: s(1.5) }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icon.png"
+            alt=""
+            style={{ width: s(7), height: s(7), borderRadius: s(1.5), display: 'block', flexShrink: 0 }}
+          />
+          <span style={{ color: 'white', fontWeight: 700, fontSize: s(5.5), letterSpacing: '0.02em' }}>
+            TipDirect
+          </span>
+        </div>
         <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: s(3.8) }}>
           tipdirect.be/{ober.gebruikersnaam}
         </span>
@@ -335,9 +343,17 @@ function Tafelkaart({
         padding: `${r(0.09)} ${r(0.09)}`,
         flexShrink: 0,
       }}>
-        <p style={{ color: 'white', fontWeight: 700, fontSize: r(0.075), margin: 0, letterSpacing: '0.01em' }}>
-          TipDirect
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: r(0.02) }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icon.png"
+            alt=""
+            style={{ width: r(0.09), height: r(0.09), borderRadius: r(0.018), display: 'block', flexShrink: 0 }}
+          />
+          <p style={{ color: 'white', fontWeight: 700, fontSize: r(0.075), margin: 0, letterSpacing: '0.01em' }}>
+            TipDirect
+          </p>
+        </div>
         <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: r(0.032), margin: `${r(0.012)} 0 0` }}>
           tipdirect.be/{ober.gebruikersnaam}
         </p>
