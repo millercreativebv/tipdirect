@@ -185,6 +185,7 @@ export default function AdminDashboard() {
   const [omzetLaden, setOmzetLaden] = useState(false)
   const [bezoekData, setBezoekData] = useState<BezoekData | null>(null)
   const [bezoekLaden, setBezoekLaden] = useState(false)
+  const [bezoekFout, setBezoekFout] = useState(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -396,8 +397,10 @@ export default function AdminDashboard() {
 
   async function laadBezoekers() {
     setBezoekLaden(true)
+    setBezoekFout(false)
     const res = await fetch('/api/admin/bezoekers', { headers: { Authorization: `Bearer ${token}` } })
     if (res.ok) setBezoekData(await res.json())
+    else setBezoekFout(true)
     setBezoekLaden(false)
   }
 
@@ -1538,6 +1541,19 @@ export default function AdminDashboard() {
 
         {tab === 'bezoekers' && (
           <>
+            {bezoekFout && !bezoekLaden && (
+              <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+                <p className="text-4xl mb-3">⚠️</p>
+                <p className="font-semibold text-gray-700">Kon bezoekersstatistieken niet laden</p>
+                <button
+                  onClick={() => laadBezoekers()}
+                  className="mt-4 text-xs text-brand-500 hover:text-brand-700 font-medium"
+                >
+                  ↺ Opnieuw proberen
+                </button>
+              </div>
+            )}
+
             {bezoekLaden && (
               <div className="flex justify-center py-12">
                 <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
