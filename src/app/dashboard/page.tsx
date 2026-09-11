@@ -386,7 +386,7 @@ export default function DashboardPagina() {
                   href="/dashboard/qr-kaart"
                   className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition-all text-center"
                 >
-                  Afdrukken als pasje (creditcardformaat)
+                  Pasje of tafelkaart afdrukken
                 </Link>
                 <Link
                   href={`/${ober.gebruikersnaam}`}
