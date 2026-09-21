@@ -74,6 +74,8 @@ type PartnerItem = {
   tegoed_open: number
   tegoed_totaal: number
   tegoed_lijst: PartnerTegoed[]
+  laatste_login: string | null
+  account_aangemaakt: string | null
 }
 
 type KaartOrder = {
@@ -1029,6 +1031,15 @@ export default function AdminDashboard() {
                           <p className="font-semibold text-gray-900">{p.naam}</p>
                           <p className="text-xs text-gray-400">{p.email} · {p.land}</p>
                           {p.iban && <p className="text-xs font-mono text-gray-400 mt-0.5">{p.iban}</p>}
+                          <p className="text-xs mt-0.5">
+                            {p.laatste_login && p.laatste_login !== p.account_aangemaakt ? (
+                              <span className="text-emerald-600">
+                                ✓ Laatst ingelogd op {new Date(p.laatste_login).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </span>
+                            ) : (
+                              <span className="text-amber-600">Nog nooit ingelogd</span>
+                            )}
+                          </p>
                         </div>
                         <div className="flex flex-col items-end gap-1 flex-shrink-0">
                           <span className={`text-xs font-bold px-2 py-1 rounded-full ${p.actief ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>

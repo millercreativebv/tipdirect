@@ -33,7 +33,18 @@ export async function GET(req: NextRequest) {
     const tegoed_totaal = tegoedSnap.docs
       .reduce((s, t) => s + (t.data().bedrag ?? 0), 0)
 
-    return { id: d.id, ...d.data(), tegoed_open, tegoed_totaal, tegoed_lijst: tegoedLijst }
+    // Login-status komt uit Firebase Auth zelf — geen aparte tracking nodig.
+    let laatste_login: string | null = null
+    let account_aangemaakt: string | null = null
+    try {
+      const userRecord = await adminAuth.getUser(d.id)
+      laatste_login = userRecord.metadata.lastSignInTime ?? null
+      account_aangemaakt = userRecord.metadata.creationTime ?? null
+    } catch {
+      // Auth-account bestaat niet (meer) — laat leeg
+    }
+
+    return { id: d.id, ...d.data(), tegoed_open, tegoed_totaal, tegoed_lijst: tegoedLijst, laatste_login, account_aangemaakt }
   }))
 
   return NextResponse.json({ partners })
