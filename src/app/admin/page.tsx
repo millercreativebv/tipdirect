@@ -524,6 +524,7 @@ export default function AdminDashboard() {
     })
     if (res.ok) {
       setAbonnementen(prev => prev.filter(a => a.id !== oberId))
+      setOnbetaald(prev => prev.filter(a => a.id !== oberId))
       setOpenDetail(null)
     }
     setVerwijderBevestig(null)
@@ -679,13 +680,41 @@ export default function AdminDashboard() {
                           <p className="text-xs text-gray-400 mt-1">Aangemaakt: {new Date(a.aangemaakt_op).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                         )}
                       </div>
-                      <button
-                        onClick={() => activeerOnbetaald(a.id)}
-                        disabled={onbetaaldActiveerBezig === a.id}
-                        className="flex-shrink-0 px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-all"
-                      >
-                        {onbetaaldActiveerBezig === a.id ? 'Bezig...' : 'Gratis activeren'}
-                      </button>
+                      <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                        <button
+                          onClick={() => activeerOnbetaald(a.id)}
+                          disabled={onbetaaldActiveerBezig === a.id}
+                          className="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-xl transition-all"
+                        >
+                          {onbetaaldActiveerBezig === a.id ? 'Bezig...' : 'Gratis activeren'}
+                        </button>
+
+                        {verwijderBevestig === a.id ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-red-600 font-medium">Zeker weten?</span>
+                            <button
+                              onClick={() => verwijderAccount(a.id)}
+                              disabled={verwijderBezig === a.id}
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-200 text-white text-sm font-bold rounded-xl transition-all"
+                            >
+                              {verwijderBezig === a.id ? 'Verwijderen...' : 'Ja, verwijderen'}
+                            </button>
+                            <button
+                              onClick={() => setVerwijderBevestig(null)}
+                              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
+                            >
+                              Annuleren
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setVerwijderBevestig(a.id)}
+                            className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium rounded-xl transition-all"
+                          >
+                            Verwijderen
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
