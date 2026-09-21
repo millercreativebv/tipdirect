@@ -143,7 +143,7 @@ export default function DashboardPagina() {
       })
       const data = await res.json()
       if (res.ok) {
-        setBijbestelMelding('✅ Bijbestelling aangevraagd! We sturen je 10 nieuwe kaarten toe.')
+        setBijbestelMelding('✅ Bestelling geplaatst! We sturen je 5 nieuwe kaarten toe.')
         const kres = await fetch('/api/mijn/kaart-order', { headers: { Authorization: `Bearer ${token}` } })
         if (kres.ok) setKaartOrders((await kres.json()).orders ?? [])
       } else {
@@ -510,7 +510,9 @@ export default function DashboardPagina() {
             <h2 className="font-semibold text-gray-900">Mijn kaarten</h2>
           </div>
           {kaartOrders.length === 0 ? (
-            <p className="text-sm text-gray-400">Kaarten worden automatisch verstuurd zodra je account actief is.</p>
+            <p className="text-sm text-gray-400">
+              Print gratis je eigen pasje of tafelkaart, of bestel fysieke pasjes (creditcardformaat) hieronder.
+            </p>
           ) : (
             <div className="space-y-2 mb-3">
               {kaartOrders.map(order => {
@@ -550,7 +552,7 @@ export default function DashboardPagina() {
             disabled={bijbestelBezig}
             className="w-full py-2.5 border-2 border-gray-200 hover:border-brand-500 hover:text-brand-600 text-gray-600 text-sm font-medium rounded-xl transition-all disabled:opacity-50"
           >
-            {bijbestelBezig ? 'Bezig...' : 'Bijbestellen (set van 10)'}
+            {bijbestelBezig ? 'Bezig...' : 'Pasjes bestellen (set van 5)'}
           </button>
         </div>
 

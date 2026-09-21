@@ -91,7 +91,6 @@ export async function sendAbonnementActiefMail(params: {
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;">Welkom bij TipDirect, ${naam}! 🎉</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#4b5563;line-height:1.7;">
       Je ${isBedrijf ? 'bedrijfsabonnement' : 'abonnement'} is nu actief.
-      Je ontvangt binnenkort een setje QR-kaarten op het door jou opgegeven adres.
     </p>
 
     <div style="background:#fdf5f9;border:1px solid #e8c0d4;border-radius:12px;padding:20px;margin-bottom:24px;">
@@ -100,12 +99,12 @@ export async function sendAbonnementActiefMail(params: {
       <p style="margin:0;font-size:14px;color:#374151;line-height:1.8;">
         1. Koppel je Mollie-account via het dashboard<br>
         2. Voeg je medewerkers toe<br>
-        3. Deel de QR-kaarten met je team zodra ze arriveren
+        3. Print gratis een pasje of tafelkaart per medewerker, of bestel fysieke pasjes
       </p>` : `
       <p style="margin:0;font-size:14px;color:#374151;line-height:1.8;">
         1. Koppel je Mollie-account via het dashboard<br>
         2. Je QR-code is dan direct actief<br>
-        3. Je kaarten zijn onderweg
+        3. Print gratis je eigen pasje of tafelkaart, of bestel fysieke pasjes via je dashboard
       </p>`}
     </div>
 
@@ -193,7 +192,7 @@ export async function sendRegistratieBevestigingMail(params: {
       <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#6b7280;letter-spacing:0.08em;text-transform:uppercase;">Zo werkt je abonnement</p>
       <p style="margin:0;font-size:14px;color:#374151;line-height:1.8;">
         Je betaalt <strong>niets vooraf</strong>. De eerste fooien die je ontvangt gaan naar je abonnement (€25). Zodra dat bedrag bereikt is, gaan alle volgende tips direct naar jou — min alleen de Mollie-transactiekost van €0,32.<br><br>
-        Je QR-kaarten worden naar jouw adres verstuurd zodra je abonnement voldaan is.
+        Je kunt via je dashboard gratis een pasje of tafelkaart zelf afdrukken, of fysieke pasjes bestellen.
       </p>
     </div>
 
@@ -213,7 +212,7 @@ export async function sendRegistratieBevestigingMail(params: {
       <p style="margin:0;font-size:14px;color:#374151;line-height:1.8;">
         1. Je account wordt direct geactiveerd<br>
         2. Je ontvangt een bevestiging per mail<br>
-        3. Je QR-kaarten voor je team worden verstuurd<br>
+        3. Print gratis pasjes of tafelkaarten voor je team, of bestel fysieke pasjes<br>
         4. Koppel je Mollie-account via het dashboard om fooien te ontvangen
       </p>
     </div>
@@ -265,8 +264,8 @@ export async function sendAdminNieuweRegistratieNotificatie(params: {
     <h1 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111827;">🆕 Nieuwe registratie</h1>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
       ${isIndividueel
-        ? 'Individueel account aangemaakt. Kaarten worden verstuurd zodra abonnement via fooien voldaan is.'
-        : 'Bedrijfsaccount aangemaakt. Wacht op betaling — daarna kaartorder aanmaken.'}
+        ? 'Individueel account aangemaakt. Wacht op betaling van abonnement via fooien.'
+        : 'Bedrijfsaccount aangemaakt. Wacht op betaling.'}
     </p>
 
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin-bottom:20px;">
