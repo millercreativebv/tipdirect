@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { auth } from '@/lib/firebase'
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import { signInWithEmailAndPassword, getIdToken } from 'firebase/auth'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -22,8 +22,20 @@ export default function InloggenPagina() {
     setLaden(true)
     setFout('')
     try {
-      await signInWithEmailAndPassword(auth, email, wachtwoord)
-      router.push('/dashboard')
+      const credential = await signInWithEmailAndPassword(auth, email, wachtwoord)
+
+      // Partners hebben geen ober-profiel — check via /api/partner of dit
+      // account een partner is, en stuur dan naar het partnerdashboard.
+      let isPartner = false
+      try {
+        const token = await getIdToken(credential.user)
+        const res = await fetch('/api/partner', { headers: { Authorization: `Bearer ${token}` } })
+        isPartner = res.ok
+      } catch {
+        // Kon niet checken — val terug op normale flow
+      }
+
+      router.push(isPartner ? '/partner' : '/dashboard')
     } catch {
       setFout('E-mailadres of wachtwoord klopt niet.')
       setLaden(false)

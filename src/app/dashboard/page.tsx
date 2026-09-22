@@ -67,6 +67,17 @@ export default function DashboardPagina() {
 
       const oberSnap = await getDoc(doc(db, 'obers', user.uid))
       if (!oberSnap.exists()) {
+        // Geen ober-profiel — mogelijk een partner-account op de verkeerde plek beland.
+        try {
+          const token = await getIdToken(user)
+          const partnerRes = await fetch('/api/partner', { headers: { Authorization: `Bearer ${token}` } })
+          if (partnerRes.ok) {
+            window.location.href = '/partner'
+            return
+          }
+        } catch {
+          // Kon niet checken — val terug op registratie
+        }
         window.location.href = '/registreer'
         return
       }
