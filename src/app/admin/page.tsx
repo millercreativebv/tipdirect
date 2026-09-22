@@ -157,6 +157,8 @@ export default function AdminDashboard() {
   const [commissieBevestig, setCommissieBevestig] = useState<string | null>(null)
   const [commissieBezig, setCommissieBezig] = useState<string | null>(null)
   const [welkomstmailBezig, setWelkomstmailBezig] = useState<string | null>(null)
+  const [partnerVerwijderBevestig, setPartnerVerwijderBevestig] = useState<string | null>(null)
+  const [partnerVerwijderBezig, setPartnerVerwijderBezig] = useState<string | null>(null)
   const [kaartOrders, setKaartOrders] = useState<KaartOrder[]>([])
   const [kaartOrdersLaden, setKaartOrdersLaden] = useState(false)
   const [kaartOrderFilter, setKaartOrderFilter] = useState<string>('alle')
@@ -284,6 +286,25 @@ export default function AdminDashboard() {
       setUitbPartnerMelding(`Fout: ${d.fout}`)
     }
     setWelkomstmailBezig(null)
+  }
+
+  async function verwijderPartner(partnerId: string) {
+    setPartnerVerwijderBezig(partnerId)
+    const huidigToken = await versToken()
+    const res = await fetch('/api/admin/partner', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${huidigToken}` },
+      body: JSON.stringify({ partnerId }),
+    })
+    if (res.ok) {
+      setPartners(prev => prev.filter(p => p.id !== partnerId))
+      setUitbPartnerMelding('✅ Partner verwijderd.')
+    } else {
+      const d = await res.json()
+      setUitbPartnerMelding(`Fout: ${d.fout}`)
+    }
+    setPartnerVerwijderBevestig(null)
+    setPartnerVerwijderBezig(null)
   }
 
   async function commissieVoldaan(partnerId: string) {
@@ -1100,7 +1121,7 @@ export default function AdminDashboard() {
                       </div>
 
                       {/* Acties */}
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         {commissieBevestig === p.id ? (
                           <>
                             <button
@@ -1141,6 +1162,31 @@ export default function AdminDashboard() {
                         >
                           ↓ CSV
                         </button>
+                        {partnerVerwijderBevestig === p.id ? (
+                          <>
+                            <button
+                              onClick={() => verwijderPartner(p.id)}
+                              disabled={partnerVerwijderBezig === p.id}
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-200 text-white text-sm font-bold rounded-xl transition-all"
+                            >
+                              {partnerVerwijderBezig === p.id ? 'Verwijderen...' : 'Zeker weten?'}
+                            </button>
+                            <button
+                              onClick={() => setPartnerVerwijderBevestig(null)}
+                              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
+                            >
+                              Annuleren
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => setPartnerVerwijderBevestig(p.id)}
+                            className="px-4 py-2 border-2 border-red-200 text-red-600 text-sm font-medium rounded-xl hover:bg-red-50 transition-all"
+                            title="Partner verwijderen"
+                          >
+                            🗑️
+                          </button>
+                        )}
                       </div>
 
                       {/* Maandoverzicht (uitklapbaar via de lijst zelf) */}

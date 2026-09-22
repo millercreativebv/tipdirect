@@ -132,3 +132,31 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, partnerId: userRecord.uid, mailFout })
 }
+
+// DELETE — verwijder een partner (Auth-account + partner-doc + tegoed-historie)
+export async function DELETE(req: NextRequest) {
+  const userId = await getUserId(req)
+  if (!userId || !(await isAdmin(userId))) {
+    return NextResponse.json({ fout: 'Geen toegang' }, { status: 403 })
+  }
+
+  const { partnerId } = await req.json()
+  if (!partnerId) return NextResponse.json({ fout: 'partnerId verplicht' }, { status: 400 })
+
+  const snap = await adminDb.collection('partners').doc(partnerId).get()
+  if (!snap.exists) return NextResponse.json({ fout: 'Partner niet gevonden' }, { status: 404 })
+
+  // Tegoed-historie opruimen
+  const tegoedSnap = await adminDb.collection('partner_tegoed').where('partner_id', '==', partnerId).get()
+  await Promise.all(tegoedSnap.docs.map(d => d.ref.delete()))
+
+  await adminDb.collection('partners').doc(partnerId).delete()
+
+  try {
+    await adminAuth.deleteUser(partnerId)
+  } catch {
+    // Auth-account bestond mogelijk al niet meer
+  }
+
+  return NextResponse.json({ ok: true })
+}
