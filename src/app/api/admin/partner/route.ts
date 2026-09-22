@@ -64,9 +64,22 @@ export async function PATCH(req: NextRequest) {
   if (!snap.exists) return NextResponse.json({ fout: 'Partner niet gevonden' }, { status: 404 })
 
   const { naam, email } = snap.data()!
-  const resetLink = await adminAuth.generatePasswordResetLink(email)
-  const { sendPartnerWelkomMail } = await import('@/lib/mail')
-  await sendPartnerWelkomMail({ naam, email, resetLink })
+
+  let resetLink: string
+  try {
+    resetLink = await adminAuth.generatePasswordResetLink(email)
+  } catch (err) {
+    console.error('generatePasswordResetLink mislukt voor partner:', partnerId, email, err)
+    return NextResponse.json({ fout: `Kon reset-link niet genereren: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
+  }
+
+  try {
+    const { sendPartnerWelkomMail } = await import('@/lib/mail')
+    await sendPartnerWelkomMail({ naam, email, resetLink })
+  } catch (err) {
+    console.error('Verzenden welkomstmail mislukt voor partner:', partnerId, email, err)
+    return NextResponse.json({ fout: `Mail verzenden mislukt: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true })
 }
@@ -104,11 +117,18 @@ export async function POST(req: NextRequest) {
 
   await adminDb.collection('partners').doc(userRecord.uid).set(partnerData)
 
-  // Wachtwoord-reset genereren en direct naar de partner mailen
-  const resetLink = await adminAuth.generatePasswordResetLink(email)
-  const { sendPartnerWelkomMail } = await import('@/lib/mail')
-  sendPartnerWelkomMail({ naam, email, resetLink })
-    .catch(e => console.error('Partner welkomstmail mislukt:', e))
+  // Wachtwoord-reset genereren en direct naar de partner mailen.
+  // Partner-account staat er al — een mailfout mag dat niet ongedaan maken,
+  // maar de admin moet 'm wel te zien krijgen (i.p.v. stil te falen).
+  let mailFout: string | null = null
+  try {
+    const resetLink = await adminAuth.generatePasswordResetLink(email)
+    const { sendPartnerWelkomMail } = await import('@/lib/mail')
+    await sendPartnerWelkomMail({ naam, email, resetLink })
+  } catch (err) {
+    console.error('Partner welkomstmail mislukt:', partnerData.email, err)
+    mailFout = err instanceof Error ? err.message : String(err)
+  }
 
-  return NextResponse.json({ ok: true, partnerId: userRecord.uid })
+  return NextResponse.json({ ok: true, partnerId: userRecord.uid, mailFout })
 }

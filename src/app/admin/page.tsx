@@ -239,7 +239,11 @@ export default function AdminDashboard() {
     })
     const data = await res.json()
     if (res.ok) {
-      setPartnerMelding(`✅ Partner aangemaakt. Welkomstmail met wachtwoord-link verzonden naar ${nieuwPartnerEmail}.`)
+      setPartnerMelding(
+        data.mailFout
+          ? `⚠️ Partner aangemaakt, maar welkomstmail kon niet worden verzonden: ${data.mailFout}. Gebruik het mail-icoon bij de partner om het opnieuw te proberen.`
+          : `✅ Partner aangemaakt. Welkomstmail met wachtwoord-link verzonden naar ${nieuwPartnerEmail}.`
+      )
       setNieuwPartnerNaam('')
       setNieuwPartnerEmail('')
       setNieuwPartnerIban('')
